@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-envelope.v2.schema.json",
+  "$comment": "Local-only identifier; never dereferenced over the network. Every shared LCIM V2 record carries schemaName + schemaVersion.",
+  "title": "LCIM V2 shared record envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaName", "schemaVersion"],
+  "properties": {
+    "schemaName": {
+      "enum": [
+        "lcim.common.envelope",
+        "lcim.common.enums",
+        "lcim.common.run",
+        "lcim.common.invocation",
+        "lcim.common.work-unit",
+        "lcim.common.disposition",
+        "lcim.common.review-finding",
+        "lcim.common.rejection",
+        "lcim.common.error"
+      ]
+    },
+    "schemaVersion": { "const": "2.0.0" }
+  }
+}

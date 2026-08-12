@@ -1,0 +1,6 @@
+{
+  "schemaName": "lcim.common.error",
+  "schemaVersion": "2.0.0",
+  "code": "lowercase_code",
+  "message": "Code must be uppercase with underscores."
+}

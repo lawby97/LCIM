@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-enums.v2.schema.json",
+  "$comment": "Canonical snapshot of the shared V2 enum registry. Values MUST match src/shared/enums.mjs (tests enforce). State separation: workerStatus never contains PATCH_READY or controller dispositions.",
+  "title": "LCIM V2 shared enum registry snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "workerStatus",
+    "controllerDisposition",
+    "runStatus",
+    "invocationEventKind",
+    "workUnitStatus",
+    "reviewFindingSeverity",
+    "rejectionCode"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.common.enums" },
+    "schemaVersion": { "const": "2.0.0" },
+    "workerStatus": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["WORK_COMPLETE", "BLOCKED", "FAILED", "NO_CHANGE"] }
+    },
+    "controllerDisposition": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "PATCH_VALID",
+          "SEMANTICALLY_ACCEPTED",
+          "CANDIDATE_INTEGRATED",
+          "REVIEW_APPROVED",
+          "REJECTED",
+          "REVIEW_REQUIRED"
+        ]
+      }
+    },
+    "runStatus": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["OPEN", "COMPLETED", "INCOMPLETE_LEDGER", "ABORTED"] }
+    },
+    "invocationEventKind": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["START", "COMPLETION", "ASSESSMENT", "RECONCILIATION"]
+      }
+    },
+    "workUnitStatus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": ["CREATED", "IN_PROGRESS", "BLOCKED", "COMPLETED", "FAILED"]
+      }
+    },
+    "reviewFindingSeverity": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["INFO", "WARNING", "CRITICAL"] }
+    },
+    "rejectionCode": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "TRANSPORT_MALFORMED",
+          "SCHEMA_MISMATCH",
+          "SEMANTIC_CONFLATION",
+          "WRONG_BASE",
+          "SCOPE_VIOLATION",
+          "UNRESOLVED_SEMANTICS",
+          "UNSUPPORTED_CLAIM",
+          "INCOMPLETE_LEDGER",
+          "BUDGET_EXHAUSTED",
+          "SECRET_DENIED_PATH",
+          "SOL_ASK_INVALID"
+        ]
+      }
+    }
+  }
+}

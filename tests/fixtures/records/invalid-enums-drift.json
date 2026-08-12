@@ -1,0 +1,11 @@
+{
+  "schemaName": "lcim.common.enums",
+  "schemaVersion": "2.0.0",
+  "workerStatus": ["WORK_COMPLETE", "PATCH_READY"],
+  "controllerDisposition": ["PATCH_VALID"],
+  "runStatus": ["OPEN"],
+  "invocationEventKind": ["START"],
+  "workUnitStatus": ["CREATED"],
+  "reviewFindingSeverity": ["INFO"],
+  "rejectionCode": ["TRANSPORT_MALFORMED"]
+}

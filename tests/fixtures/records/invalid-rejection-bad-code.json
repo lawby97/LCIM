@@ -1,0 +1,9 @@
+{
+  "schemaName": "lcim.common.rejection",
+  "schemaVersion": "2.0.0",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "rejectionCode": "PATCH_INVALID",
+  "reason": "Not a member of the rejection taxonomy.",
+  "evidenceRefs": [],
+  "rejectedAt": "2025-01-01T00:00:03.000Z"
+}

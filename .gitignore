@@ -1,0 +1,50 @@
+# --- LCIM V2 public-safe ignore baseline (Sprint 00) ---
+# This file is guarded by tests/guards/ignore-guards.test.mjs. Do not weaken
+# these patterns without updating that test. Canonical runtime state lives
+# under <git-common-dir>/lcim (never tracked); these patterns are belt-and-
+# braces against accidental tracking anywhere in the source tree.
+
+# Node toolchain
+node_modules/
+coverage/
+*.tgz
+
+# Credentials & secrets (never tracked)
+.env
+.env.*
+!.env.example
+credentials
+credentials.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.secret
+
+# Raw model transcripts (never tracked)
+*.transcript.json
+*.transcript.jsonl
+*.transcript.txt
+transcripts/
+
+# Local escalation records & SOL payloads (never tracked)
+escalation-records/
+sol-payloads/
+
+# Review packets / exports / target-repo evidence (never tracked)
+*.zip
+review-packets/
+review-export/
+target-repo-evidence/
+
+# Runtime logs & run state (never tracked; canonical root is <git-common-dir>/lcim)
+*.log
+*.jsonl
+lcim-runtime/
+
+# OS
+.DS_Store

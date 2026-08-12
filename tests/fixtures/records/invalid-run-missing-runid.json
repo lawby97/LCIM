@@ -1,0 +1,10 @@
+{
+  "schemaName": "lcim.common.run",
+  "schemaVersion": "2.0.0",
+  "lifecycleState": "OPEN",
+  "lcimVersion": "2.0.0-dev.0",
+  "lcimCommit": "1a280bd000000000000000000000000000000000",
+  "targetBaseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "createdAt": "2025-01-01T00:00:00.000Z"
+}

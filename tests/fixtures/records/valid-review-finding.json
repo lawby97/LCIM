@@ -1,0 +1,10 @@
+{
+  "schemaName": "lcim.common.review-finding",
+  "schemaVersion": "2.0.0",
+  "findingId": "lcim_finding_0123456789abcdef0123456789abcdef",
+  "severity": "CRITICAL",
+  "invariantRef": "CONTRACT-042: decision digest distinct from membership digest",
+  "summary": "Decision digest and membership digest are conflated in the candidate patch.",
+  "evidenceRefs": ["runs/lcim_run_0123456789abcdef0123456789abcdef/patch/evidence.json"],
+  "createdAt": "2025-01-01T00:00:02.000Z"
+}

@@ -1,0 +1,8 @@
+{
+  "schemaName": "lcim.common.disposition",
+  "schemaVersion": "2.0.0",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "disposition": "PATCH_VALID",
+  "decidedAt": "2025-01-01T00:00:01.000Z",
+  "evidenceRefs": ["runs/lcim_run_0123456789abcdef0123456789abcdef/patch/evidence.json"]
+}

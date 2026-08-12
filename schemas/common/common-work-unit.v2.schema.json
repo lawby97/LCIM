@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-work-unit.v2.schema.json",
+  "$comment": "Shared work-unit record. expectedBaseSha and allowedWritePaths are controller-owned (Sprint 03 owns base/scope enforcement); mustChangePaths is optional and checked separately from the write-scope rule.",
+  "title": "LCIM V2 shared work-unit record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "workUnitId",
+    "runId",
+    "status",
+    "expectedBaseSha",
+    "allowedWritePaths",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.common.work-unit" },
+    "schemaVersion": { "const": "2.0.0" },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "runId": { "type": "string", "pattern": "^lcim_run_[0-9a-f]{32}$" },
+    "status": {
+      "enum": ["CREATED", "IN_PROGRESS", "BLOCKED", "COMPLETED", "FAILED"]
+    },
+    "expectedBaseSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "allowedWritePaths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "mustChangePaths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

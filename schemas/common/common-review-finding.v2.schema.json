@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-review-finding.v2.schema.json",
+  "$comment": "Shared review-finding record. invariantRef names the checked invariant (Sprint 06 FINAL_REVIEW uses named invariants); summary must be bounded and public-safe. Sprint 08 owns REVIEW.md and audit projections.",
+  "title": "LCIM V2 review finding record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "findingId",
+    "severity",
+    "summary",
+    "evidenceRefs",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.common.review-finding" },
+    "schemaVersion": { "const": "2.0.0" },
+    "findingId": { "type": "string", "pattern": "^lcim_finding_[0-9a-f]{32}$" },
+    "severity": { "enum": ["INFO", "WARNING", "CRITICAL"] },
+    "invariantRef": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

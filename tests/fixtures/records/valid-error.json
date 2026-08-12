@@ -1,0 +1,7 @@
+{
+  "schemaName": "lcim.common.error",
+  "schemaVersion": "2.0.0",
+  "code": "CONFIG_INVALID",
+  "message": "unknown id kind: nope",
+  "details": { "kind": "nope" }
+}

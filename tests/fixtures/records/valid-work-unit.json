@@ -1,0 +1,11 @@
+{
+  "schemaName": "lcim.common.work-unit",
+  "schemaVersion": "2.0.0",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "status": "IN_PROGRESS",
+  "expectedBaseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "allowedWritePaths": ["src/", "tests/"],
+  "mustChangePaths": ["src/feature.mjs"],
+  "createdAt": "2025-01-01T00:00:00.000Z"
+}

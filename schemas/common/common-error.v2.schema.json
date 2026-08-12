@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-error.v2.schema.json",
+  "$comment": "Public-safe error record. Never include credentials, transcripts, or raw model output in code/message/details.",
+  "title": "LCIM V2 error record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaName", "schemaVersion", "code", "message"],
+  "properties": {
+    "schemaName": { "const": "lcim.common.error" },
+    "schemaVersion": { "const": "2.0.0" },
+    "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+    "message": { "type": "string", "minLength": 1 },
+    "details": { "type": "object" }
+  }
+}

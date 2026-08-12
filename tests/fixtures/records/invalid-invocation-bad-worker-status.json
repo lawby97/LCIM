@@ -1,0 +1,9 @@
+{
+  "schemaName": "lcim.common.invocation",
+  "schemaVersion": "2.0.0",
+  "invocationId": "lcim_inv_0123456789abcdef0123456789abcdef",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "PATCH_READY",
+  "createdAt": "2025-01-01T00:00:00.000Z"
+}

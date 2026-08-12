@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-disposition.v2.schema.json",
+  "$comment": "Controller disposition record. disposition uses CONTROLLER_DISPOSITION ONLY — worker statuses (WORK_COMPLETE/BLOCKED/FAILED/NO_CHANGE) are invalid here. reasonCode is expected when disposition is REJECTED (Sprint 05/06 compile the exact reasons; the shared vocabulary is fixed now).",
+  "title": "LCIM V2 controller disposition record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "workUnitId",
+    "disposition",
+    "decidedAt",
+    "evidenceRefs"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.common.disposition" },
+    "schemaVersion": { "const": "2.0.0" },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "disposition": {
+      "enum": [
+        "PATCH_VALID",
+        "SEMANTICALLY_ACCEPTED",
+        "CANDIDATE_INTEGRATED",
+        "REVIEW_APPROVED",
+        "REJECTED",
+        "REVIEW_REQUIRED"
+      ]
+    },
+    "reasonCode": {
+      "enum": [
+        "TRANSPORT_MALFORMED",
+        "SCHEMA_MISMATCH",
+        "SEMANTIC_CONFLATION",
+        "WRONG_BASE",
+        "SCOPE_VIOLATION",
+        "UNRESOLVED_SEMANTICS",
+        "UNSUPPORTED_CLAIM",
+        "INCOMPLETE_LEDGER",
+        "BUDGET_EXHAUSTED",
+        "SECRET_DENIED_PATH",
+        "SOL_ASK_INVALID"
+      ]
+    },
+    "decidedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

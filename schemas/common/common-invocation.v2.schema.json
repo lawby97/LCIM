@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/common/common-invocation.v2.schema.json",
+  "$comment": "Shared invocation-record header. workerStatus is OPTIONAL and, when present, uses the model-owned vocabulary ONLY (WORK_COMPLETE/BLOCKED/FAILED/NO_CHANGE) — PATCH_READY and controller dispositions are invalid here. Absence of workerStatus means \"no valid worker status was received\" (e.g. START/timeout/provider error/crash/orphan before any valid handoff). The controller must NEVER synthesize a worker status merely because execution failed, timed out, crashed, or produced an invalid handoff. Sprint 01 owns the full lifecycle ledger.",
+  "title": "LCIM V2 shared invocation record header",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "invocationId",
+    "runId",
+    "workUnitId",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.common.invocation" },
+    "schemaVersion": { "const": "2.0.0" },
+    "invocationId": { "type": "string", "pattern": "^lcim_inv_[0-9a-f]{32}$" },
+    "runId": { "type": "string", "pattern": "^lcim_run_[0-9a-f]{32}$" },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "workerStatus": {
+      "enum": ["WORK_COMPLETE", "BLOCKED", "FAILED", "NO_CHANGE"]
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

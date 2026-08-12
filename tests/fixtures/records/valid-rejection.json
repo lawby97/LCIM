@@ -1,0 +1,9 @@
+{
+  "schemaName": "lcim.common.rejection",
+  "schemaVersion": "2.0.0",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "rejectionCode": "TRANSPORT_MALFORMED",
+  "reason": "Final response contained multiple JSON objects; patch evidence preserved for separate validation.",
+  "evidenceRefs": ["runs/lcim_run_0123456789abcdef0123456789abcdef/transport/raw-final-response.jsonl"],
+  "rejectedAt": "2025-01-01T00:00:03.000Z"
+}
