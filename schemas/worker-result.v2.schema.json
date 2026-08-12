@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/worker-result.v2.schema.json",
+  "$comment": "Sprint 02 worker-result transport contract (model-owned communication ONLY). Allowed: workUnitId (echoed), workerStatus (strictly WORKER_STATUS), bounded summary, acceptance claims with evidence refs, remaining issues, review risks, uncertainty. Deliberately absent — controller-owned facts that V1 workers wrongly reported (Sprint 03 owns git/test/secret evidence; the controller stamps envelopes): changed-file lists, line counts, patch hashes, base/HEAD SHAs, test-log paths, test exit status, secret-scan results, integration status, controller dispositions, and schemaName/schemaVersion envelope metadata. additionalProperties=false makes every legacy/controller-owned field a SCHEMA_MISMATCH instead of silently accepting it. Never invent missing semantic fields or rewrite types to satisfy this schema; validation only records validity. The payload carries no envelope: the controller stamps records and records schemaVersion.",
+  "title": "LCIM V2 worker result (model-owned handoff payload)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workUnitId",
+    "workerStatus",
+    "summary"
+  ],
+  "properties": {
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "workerStatus": {
+      "enum": ["WORK_COMPLETE", "BLOCKED", "FAILED", "NO_CHANGE"]
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "acceptanceClaims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "evidenceRefs"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidenceRefs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        }
+      }
+    },
+    "remainingIssues": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "reviewRisks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "uncertainty": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  }
+}

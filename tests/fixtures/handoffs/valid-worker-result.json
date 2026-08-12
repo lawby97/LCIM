@@ -1,0 +1,14 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Valid worker result with every optional field present.",
+  "acceptanceClaims": [
+    {
+      "claim": "Contract implemented",
+      "evidenceRefs": ["tests/unit/contract.test.mjs"]
+    }
+  ],
+  "remainingIssues": ["Nothing outstanding."],
+  "reviewRisks": ["Reviewer should double-check the public API surface."],
+  "uncertainty": "No uncertainty."
+}

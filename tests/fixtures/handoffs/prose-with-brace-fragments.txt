@@ -1,0 +1,1 @@
+Per {the team style guide}: the result is {"workUnitId":"lcim_wu_0123456789abcdef0123456789abcdef","workerStatus":"NO_CHANGE","summary":"prose with a brace fragment"} — see {annex B}.

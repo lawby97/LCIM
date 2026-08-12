@@ -1,0 +1,1 @@
+{"workUnitId":"lcim_wu_0123456789abcdef0123456789abcdef","workerStatus":"NO_CHANGE","summary":"first object"} and {"workUnitId":"lcim_wu_0123456789abcdef0123456789abcdef","workerStatus":"FAILED","summary":"second object"}

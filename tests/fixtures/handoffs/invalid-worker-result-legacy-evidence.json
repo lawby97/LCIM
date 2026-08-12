@@ -1,0 +1,6 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Legacy V1 evidence string field.",
+  "evidence": "tests/unit/x.test.mjs passed"
+}

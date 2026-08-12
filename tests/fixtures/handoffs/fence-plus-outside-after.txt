@@ -1,0 +1,6 @@
+harmless prose before
+```json
+{"workerStatus":"BLOCKED","summary":"blocked","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}
+```
+more prose
+{"workerStatus":"WORK_COMPLETE","summary":"done","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}

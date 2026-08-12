@@ -1,0 +1,5 @@
+{
+  "workUnitId": "not-a-valid-work-unit-id",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Bad id must fail the pattern."
+}

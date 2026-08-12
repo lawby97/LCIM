@@ -1,0 +1,11 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "I believe the work is done and the tests pass. Controller will verify.",
+  "acceptanceClaims": [
+    { "claim": "Feature implemented", "evidenceRefs": ["ref://worker/self-report/1"] }
+  ],
+  "remainingIssues": [],
+  "reviewRisks": [],
+  "uncertainty": "I could not run the full suite; results are self-reported."
+}

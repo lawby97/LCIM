@@ -1,0 +1,5 @@
+{"workerStatus":"BLOCKED","summary":"blocked","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}
+harmless prose
+```json
+{"workerStatus":"WORK_COMPLETE","summary":"done","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}
+```

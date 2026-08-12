@@ -1,0 +1,14 @@
+Here is my result:
+
+```json
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Fenced JSON handoff.",
+  "acceptanceClaims": [
+    { "claim": "Fence path works", "evidenceRefs": ["ref://handoff/fence"] }
+  ],
+  "remainingIssues": [],
+  "reviewRisks": []
+}
+```

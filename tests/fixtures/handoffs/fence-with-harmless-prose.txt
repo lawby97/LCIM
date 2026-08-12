@@ -1,0 +1,5 @@
+some harmless prefix prose
+```json
+{"workerStatus":"BLOCKED","summary":"blocked","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}
+```
+some harmless suffix prose

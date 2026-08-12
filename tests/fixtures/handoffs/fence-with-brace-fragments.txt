@@ -1,0 +1,5 @@
+example {not json} or prose like {thing: value}
+```json
+{"workerStatus":"BLOCKED","summary":"blocked","acceptanceClaims":[],"remainingIssues":[],"reviewRisks":[]}
+```
+more prose {annex B}

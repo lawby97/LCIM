@@ -1,0 +1,13 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Implemented the sprint-owned module and its tests; full unit run passes.",
+  "acceptanceClaims": [
+    {
+      "claim": "New module exports the documented public API",
+      "evidenceRefs": ["tests/unit/new-module.test.mjs"]
+    }
+  ],
+  "remainingIssues": [],
+  "reviewRisks": ["Shared file touched; reviewer should confirm no cross-sprint impact."]
+}

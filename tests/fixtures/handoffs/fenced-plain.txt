@@ -1,0 +1,10 @@
+Result:
+```
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "NO_CHANGE",
+  "summary": "Untagged fence with JSON content.",
+  "remainingIssues": [],
+  "reviewRisks": []
+}
+```

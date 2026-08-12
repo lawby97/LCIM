@@ -1,0 +1,8 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "BLOCKED",
+  "summary": "Blocked: required approval gate is not open in this environment.",
+  "remainingIssues": ["Wait for the approval gate before continuing."],
+  "reviewRisks": ["None."],
+  "uncertainty": "It is unclear when the gate opens."
+}

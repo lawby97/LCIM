@@ -1,0 +1,7 @@
+{
+  "schemaName": "lcim.worker-result",
+  "schemaVersion": "2.0.0",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Envelope metadata must be controller-stamped, not model-reported."
+}

@@ -1,0 +1,14 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Objective-evidence smuggling attempt.",
+  "changedFiles": ["src/a.mjs", "src/b.mjs"],
+  "lineCount": 42,
+  "patchHash": "deadbeef",
+  "baseSha": "0000000000000000000000000000000000000000",
+  "headSha": "1111111111111111111111111111111111111111",
+  "testLogPath": "/tmp/lcim-test.log",
+  "testExitStatus": 0,
+  "secretScan": "clean",
+  "integrationStatus": "ready"
+}
