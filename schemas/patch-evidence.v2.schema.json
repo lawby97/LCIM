@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/patch-evidence.v2.schema.json",
+  "$comment": "Sprint 03 controller-owned patch evidence record. NOT part of the Sprint 00 shared common schemas; validated through src/evidence/patch/schema.mjs using the shared Sprint-00 validation engine (supported keyword subset only). All fields are controller-derived git facts. validationResults is the Sprint 04 hook surface (test/secret-scan results attach here).",
+  "title": "LCIM V2 controller-owned patch evidence record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "evidenceId",
+    "patchId",
+    "workUnitId",
+    "worktreeId",
+    "baseSha",
+    "worktreeHead",
+    "changedPaths",
+    "additions",
+    "deletions",
+    "patchHash",
+    "diffCheck",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.patch-evidence" },
+    "schemaVersion": { "const": "2.0.0" },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^lcim_ev_[0-9a-f]{32}$",
+      "$comment": "CONTEXTUAL evidence observation identity: unique per controller observation, independent of patch content. Two observations of identical patch bytes MUST carry distinct evidenceIds and distinct record paths. Controller-generated; never worker-supplied."
+    },
+    "patchId": {
+      "type": "string",
+      "pattern": "^lcim_patch_[0-9a-f]{32}$",
+      "$comment": "CONTENT identity: lcim_patch_ + first 32 hex chars of patchHash (sha256 of the canonical patch bytes). Identical canonical patch bytes share one content-addressed patch artifact."
+    },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "worktreeId": {
+      "type": "string",
+      "pattern": "^lcim_wt_[0-9a-f]{32}$",
+      "$comment": "worktree identity the observation was collected from; binds the contextual record to the controller-owned disposable worktree"
+    },
+    "baseSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "worktreeHead": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "changedPaths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "$comment": "sorted unique repository-relative posix paths of every observed change (tracked M/A/D plus untracked files)"
+    },
+    "additions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "$comment": "sorted unique paths added (git status A, including untracked files the controller intent-to-adds)"
+    },
+    "deletions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "$comment": "sorted unique paths deleted (git status D)"
+    },
+    "patchHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "$comment": "sha256 hex over the canonical patch bytes (git diff --full-index --binary --no-renames <baseSha>)"
+    },
+    "diffCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clean"],
+      "properties": {
+        "clean": { "type": "boolean" },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "$comment": "stderr lines from `git diff --check <baseSha>` when clean is false"
+        }
+      }
+    },
+    "validationResults": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "outcome", "summary"],
+        "properties": {
+          "kind": { "enum": ["test", "secret-scan"] },
+          "outcome": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "evidenceRef": { "type": "string", "minLength": 1 }
+        }
+      },
+      "$comment": "Sprint 04 hook surface: test/secret validation results attach here; the semantic contract compiler is NOT implemented by Sprint 03"
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}
