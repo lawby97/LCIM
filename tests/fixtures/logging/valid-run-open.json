@@ -1,0 +1,16 @@
+{
+  "schemaName": "lcim.run",
+  "schemaVersion": "1.0.0",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "lifecycleState": "OPEN",
+  "lcimVersion": "2.0.0-dev.0",
+  "lcimCommit": "1a280bd000000000000000000000000000000000",
+  "targetBaseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "storeVersion": "1",
+  "finalizedAt": null,
+  "abortedAt": null,
+  "abortNote": null,
+  "finalSummary": null
+}

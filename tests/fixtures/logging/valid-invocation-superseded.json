@@ -1,0 +1,18 @@
+{
+  "schemaName": "lcim.invocation",
+  "schemaVersion": "1.0.0",
+  "invocationId": "lcim_inv_22222222222222222222222222222222",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "status": "SUPERSEDED",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "role": "WORKER",
+  "reasoningEffort": "xhigh",
+  "startedAt": "2025-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "assessedAt": null,
+  "reconciledAt": "2025-01-01T00:00:01.000Z",
+  "reconciliationReason": "CRASH_AFTER_START",
+  "supersededByInvocationId": "lcim_inv_33333333333333333333333333333333"
+}

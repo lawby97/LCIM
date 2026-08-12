@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/run.v2.schema.json",
+  "$comment": "Sprint 01 owned: run store record run.json under <git-common-dir>/lcim/runs/<runId>/. Carries the master-plan principle-10 header fields (LCIM version/commit, target base sha, config digest, schema version) plus run-store lifecycle fields. finalSummary is written by the finalizer (lifecycleState COMPLETED or INCOMPLETE_LEDGER); abortedAt/abortNote by abort(). finalSummary.ledgerDigest anchors the ledger end, so a finalized ledger cannot be truncated or rewritten without detection. The lcim.run family is versioned independently of the frozen lcim.common.run header (2.0.0).",
+  "title": "LCIM V2 run store record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "runId",
+    "lifecycleState",
+    "lcimVersion",
+    "lcimCommit",
+    "targetBaseSha",
+    "configDigest",
+    "createdAt",
+    "storeVersion",
+    "finalizedAt",
+    "abortedAt",
+    "abortNote",
+    "finalSummary"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.run" },
+    "schemaVersion": { "const": "1.0.0" },
+    "runId": { "type": "string", "pattern": "^lcim_run_[0-9a-f]{32}$" },
+    "lifecycleState": {
+      "enum": ["OPEN", "COMPLETED", "INCOMPLETE_LEDGER", "ABORTED"]
+    },
+    "lcimVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+    },
+    "lcimCommit": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "targetBaseSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "configDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "storeVersion": { "const": "1" },
+    "finalizedAt": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "abortedAt": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "abortNote": { "type": ["string", "null"], "minLength": 1, "maxLength": 500 },
+    "finalSummary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "events",
+        "invocations",
+        "starts",
+        "completions",
+        "assessments",
+        "reconciliations",
+        "lastSeq",
+        "ledgerDigest",
+        "incompleteInvocationIds"
+      ],
+      "properties": {
+        "events": { "type": "integer" },
+        "invocations": { "type": "integer" },
+        "starts": { "type": "integer" },
+        "completions": { "type": "integer" },
+        "assessments": { "type": "integer" },
+        "reconciliations": { "type": "integer" },
+        "lastSeq": { "type": "integer" },
+        "ledgerDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "incompleteInvocationIds": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^lcim_inv_[0-9a-f]{32}$" }
+        }
+      }
+    }
+  }
+}

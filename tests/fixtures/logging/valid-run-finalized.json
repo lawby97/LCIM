@@ -1,0 +1,26 @@
+{
+  "schemaName": "lcim.run",
+  "schemaVersion": "1.0.0",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "lifecycleState": "COMPLETED",
+  "lcimVersion": "2.0.0-dev.0",
+  "lcimCommit": "1a280bd000000000000000000000000000000000",
+  "targetBaseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "configDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "storeVersion": "1",
+  "finalizedAt": "2025-01-01T00:00:03.000Z",
+  "abortedAt": null,
+  "abortNote": null,
+  "finalSummary": {
+    "events": 3,
+    "invocations": 1,
+    "starts": 1,
+    "completions": 1,
+    "assessments": 1,
+    "reconciliations": 0,
+    "lastSeq": 3,
+    "ledgerDigest": "0da6ea20a5764e2170383a73fded2c3da01a739cf9aae76c206817b83dc6c490",
+    "incompleteInvocationIds": []
+  }
+}

@@ -1,0 +1,53 @@
+[
+  {
+    "schemaName": "lcim.event",
+    "schemaVersion": "1.0.0",
+    "kind": "START",
+    "invocationId": "lcim_inv_11111111111111111111111111111111",
+    "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+    "occurredAt": "2025-01-01T00:00:00.000Z",
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "role": "WORKER",
+    "reasoningEffort": "xhigh",
+    "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+    "seq": 1,
+    "prevDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "digest": "775adec74bdee3d2d3b40cfd231aea194b2daa83fea31cbb54c742fed42554ed"
+  },
+  {
+    "schemaName": "lcim.event",
+    "schemaVersion": "1.0.0",
+    "kind": "COMPLETION",
+    "invocationId": "lcim_inv_11111111111111111111111111111111",
+    "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+    "occurredAt": "2025-01-01T00:00:01.000Z",
+    "outcome": "SUCCESS",
+    "usage": {
+      "inputTokens": 10,
+      "outputTokens": 20,
+      "totalTokens": 30
+    },
+    "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+    "seq": 2,
+    "prevDigest": "775adec74bdee3d2d3b40cfd231aea194b2daa83fea31cbb54c742fed42554ed",
+    "digest": "c5ded0849a6e526440b4ef010682ee7b19f827075bc6784f7ad99fdada4fb483"
+  },
+  {
+    "schemaName": "lcim.event",
+    "schemaVersion": "1.0.0",
+    "kind": "ASSESSMENT",
+    "invocationId": "lcim_inv_11111111111111111111111111111111",
+    "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+    "occurredAt": "2025-01-01T00:00:02.000Z",
+    "assessmentResult": "ACCEPTED",
+    "summary": "fixture: successful invocation",
+    "evidenceRefs": [
+      "fixture://evidence/1"
+    ],
+    "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+    "seq": 3,
+    "prevDigest": "c5ded0849a6e526440b4ef010682ee7b19f827075bc6784f7ad99fdada4fb483",
+    "digest": "0da6ea20a5764e2170383a73fded2c3da01a739cf9aae76c206817b83dc6c490"
+  }
+]

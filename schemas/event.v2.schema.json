@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/event.v2.schema.json",
+  "$comment": "Sprint 01 owned: one line of the append-only ledger events.v2.jsonl under <git-common-dir>/lcim/runs/<runId>/. Integrity chaining: prevDigest is the digest of the previous line (GENESIS = 64 zeros for seq 1); digest = sha256 of the canonical JSON of this event excluding its own digest field. Historical events can never be rewritten (any rewrite breaks the chain). Kind-specific requirements (START needs provider/model/role/reasoningEffort, etc.) are enforced in src/logging/schemas.mjs (validateEventInstance) because the Sprint-00 engine has no if/then. Public-safe: this schema allows no secrets, prompt bodies, credentials, or raw model output. The lcim.event family is versioned independently of the frozen lcim.common.* family (2.0.0).",
+  "title": "LCIM V2 ledger event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "runId",
+    "seq",
+    "kind",
+    "invocationId",
+    "workUnitId",
+    "occurredAt",
+    "prevDigest",
+    "digest"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.event" },
+    "schemaVersion": { "const": "1.0.0" },
+    "runId": { "type": "string", "pattern": "^lcim_run_[0-9a-f]{32}$" },
+    "seq": { "type": "integer" },
+    "kind": {
+      "enum": ["START", "COMPLETION", "ASSESSMENT", "RECONCILIATION"]
+    },
+    "invocationId": { "type": "string", "pattern": "^lcim_inv_[0-9a-f]{32}$" },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "occurredAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "prevDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "provider": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "model": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "role": { "enum": ["WORKER", "SOL", "SOL_PRO"] },
+    "reasoningEffort": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "outcome": {
+      "enum": ["SUCCESS", "FAILURE", "TIMEOUT", "TRANSPORT_ERROR", "CANCELED"]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inputTokens", "outputTokens", "totalTokens"],
+      "properties": {
+        "inputTokens": { "type": "integer" },
+        "outputTokens": { "type": "integer" },
+        "totalTokens": { "type": "integer" }
+      }
+    },
+    "errorCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+    "rejectionCode": {
+      "enum": [
+        "TRANSPORT_MALFORMED",
+        "SCHEMA_MISMATCH",
+        "SEMANTIC_CONFLATION",
+        "WRONG_BASE",
+        "SCOPE_VIOLATION",
+        "UNRESOLVED_SEMANTICS",
+        "UNSUPPORTED_CLAIM",
+        "INCOMPLETE_LEDGER",
+        "BUDGET_EXHAUSTED",
+        "SECRET_DENIED_PATH",
+        "SOL_ASK_INVALID"
+      ]
+    },
+    "assessmentResult": { "enum": ["ACCEPTED", "REJECTED"] },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "evidenceRefs": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "reconciliationReason": {
+      "enum": [
+        "CRASH_AFTER_START",
+        "CRASH_AFTER_COMPLETION",
+        "DUPLICATE_LIFECYCLE",
+        "OTHER"
+      ]
+    },
+    "replacementInvocationId": {
+      "type": "string",
+      "pattern": "^lcim_inv_[0-9a-f]{32}$"
+    },
+    "note": { "type": "string", "minLength": 1, "maxLength": 500 }
+  }
+}

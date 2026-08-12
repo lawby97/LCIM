@@ -1,0 +1,16 @@
+{
+  "schemaName": "lcim.event",
+  "schemaVersion": "1.0.0",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "seq": 0,
+  "kind": "START",
+  "invocationId": "lcim_inv_11111111111111111111111111111111",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "occurredAt": "2025-01-01T00:00:00.000Z",
+  "prevDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "role": "WORKER",
+  "reasoningEffort": "xhigh"
+}

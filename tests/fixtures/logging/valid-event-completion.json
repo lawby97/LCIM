@@ -1,0 +1,18 @@
+{
+  "schemaName": "lcim.event",
+  "schemaVersion": "1.0.0",
+  "kind": "COMPLETION",
+  "invocationId": "lcim_inv_11111111111111111111111111111111",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "occurredAt": "2025-01-01T00:00:01.000Z",
+  "outcome": "SUCCESS",
+  "usage": {
+    "inputTokens": 10,
+    "outputTokens": 20,
+    "totalTokens": 30
+  },
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "seq": 2,
+  "prevDigest": "775adec74bdee3d2d3b40cfd231aea194b2daa83fea31cbb54c742fed42554ed",
+  "digest": "c5ded0849a6e526440b4ef010682ee7b19f827075bc6784f7ad99fdada4fb483"
+}

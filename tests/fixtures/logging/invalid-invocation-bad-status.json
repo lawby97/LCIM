@@ -1,0 +1,16 @@
+{
+  "schemaName": "lcim.invocation",
+  "schemaVersion": "1.0.0",
+  "invocationId": "lcim_inv_11111111111111111111111111111111",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "status": "PATCH_READY",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "role": "WORKER",
+  "reasoningEffort": "xhigh",
+  "startedAt": "2025-01-01T00:00:00.000Z",
+  "completedAt": null,
+  "assessedAt": null,
+  "reconciledAt": null
+}

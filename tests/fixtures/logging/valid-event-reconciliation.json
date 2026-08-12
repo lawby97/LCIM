@@ -1,0 +1,14 @@
+{
+  "schemaName": "lcim.event",
+  "schemaVersion": "1.0.0",
+  "kind": "RECONCILIATION",
+  "invocationId": "lcim_inv_22222222222222222222222222222222",
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "occurredAt": "2025-01-01T00:00:01.000Z",
+  "reconciliationReason": "CRASH_AFTER_START",
+  "note": "fixture: controller session crashed after START",
+  "runId": "lcim_run_0123456789abcdef0123456789abcdef",
+  "seq": 2,
+  "prevDigest": "59c45db91845ef2757a66d891a79e45b379fe4160586aa877f6d60684206489a",
+  "digest": "0157ea51e5d47b92636c02f1ca01e010a5be68e4978e55861bd80990b132204f"
+}

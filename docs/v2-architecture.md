@@ -1,9 +1,10 @@
 # LCIM V2 Architecture (Sprint 00 baseline)
 
-Status: Sprint 00 foundation. This document describes the intended V2
-architecture and the contracts frozen at Sprint 00. Substantive subsystems
-(logging, worker parsing, routing, SOL compilation, audit) are NOT implemented
-yet — only the interfaces they need.
+Status: Sprint 00 foundation; **Sprint 01 implemented** (canonical invocation
+ledger, run lifecycle, local evidence storage — see
+`docs/v2-logging-contract.md`). Substantive subsystems (worker parsing,
+routing, SOL compilation, audit) are NOT implemented yet — only the
+interfaces they need.
 
 ## 1. Design principles (locked)
 
@@ -26,7 +27,7 @@ yet — only the interfaces they need.
 | Shared IDs/enums/errors/interfaces + schema registry | 00 | Implemented (`src/shared/**`, `schemas/common/**`) |
 | Config baseline: version + runtime-path helpers | 00 | Implemented (`src/config/**`) |
 | CLI skeleton (`--version`/`--help`) | 00 (full CLI: 10) | Implemented (`bin/lcim.mjs`) |
-| Canonical invocation ledger / run store | 01 | Not implemented; runtime root contract fixed |
+| Canonical invocation ledger / run store | 01 | Implemented (`src/logging/**`, `src/runtime/run-store.mjs`; contract: `docs/v2-logging-contract.md`) |
 | Worker contract, safe parsing, transport separation | 02 | Not implemented; worker vocabulary fixed |
 | Git worktree/base/scope controller | 03 | Not implemented; runtime-path helper fixed |
 | Semantic contract compiler / risk facts | 04 | Not implemented; rejection taxonomy fixed |
@@ -133,7 +134,11 @@ schema's `required` array — enforced by tests).
   worktrees; throws `RuntimePathError` outside a work tree).
 - Canonical runtime root: `<git-common-dir>/lcim` — by construction inside
   `.git`, never tracked.
-- Run store (Sprint 01 owns the store): `<git-common-dir>/lcim/runs/<run_id>/`.
+- Run store (Sprint 01): `<git-common-dir>/lcim/runs/<run_id>/` with
+  `run.json` (lcim.run), the append-only integrity-chained ledger
+  `events.v2.jsonl` (lcim.event), compact invocation projections
+  `invocations/<invId>.json` (lcim.invocation), and the optional compressed
+  raw sink `raw/raw.jsonl.gz`. See `docs/v2-logging-contract.md`.
 - Linked worktrees share one Git-common run store.
 - `assertNoTrackedFilesUnder()` fails closed if any tracked file appears
   under a runtime path.
