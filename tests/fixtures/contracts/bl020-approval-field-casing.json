@@ -1,0 +1,80 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "bl020.approval-field-casing",
+  "title": "Approval field names and casing are exact and case-sensitive",
+  "riskClass": "AUTHORIZATION_SECURITY_PROVIDER",
+  "sourceObjects": [
+    {
+      "key": "approval-record-schema",
+      "kind": "schema",
+      "ref": "explicit structured input: approval record schema v3",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "approval",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "approval_decision",
+        "approval_status"
+      ],
+      "authoritativeEnum": [
+        "PENDING",
+        "AUTHORIZED",
+        "DENIED",
+        "REVOKED"
+      ],
+      "ownership": "approval subsystem, approval record",
+      "lifecycle": [
+        "PENDING",
+        "AUTHORIZED",
+        "DENIED",
+        "REVOKED"
+      ],
+      "allowedTransitions": [
+        {
+          "from": "PENDING",
+          "to": "AUTHORIZED",
+          "condition": "authorizer signed"
+        },
+        {
+          "from": "PENDING",
+          "to": "DENIED",
+          "condition": "authorizer rejected"
+        },
+        {
+          "from": "AUTHORIZED",
+          "to": "REVOKED",
+          "condition": "revocation recorded"
+        }
+      ],
+      "forbiddenAlternatives": [
+        "approved",
+        "Approved",
+        "isApproved",
+        "approvalDecision",
+        "approval_decision_status",
+        "approvalStatus"
+      ],
+      "sourceObjectKey": "approval-record-schema",
+      "failureBehavior": "unknown approval field names/casing are rejected; casing is case-sensitive",
+      "notes": "BL-020 C5: approval field names and casing were invented by the model"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "the authoritative approval fields are approval_decision and approval_status (snake_case, exact)",
+      "evidence": "approval-record-schema (controller-provided)"
+    },
+    {
+      "fact": "approval_status is a closed enum PENDING/AUTHORIZED/DENIED/REVOKED",
+      "evidence": "approval-record-schema enum"
+    }
+  ],
+  "unresolvedSemantics": [],
+  "semanticDigest": "208e5390fb1c207a7abdaf9a7b6b482fce144048f697747cf72ff06e6d624884"
+}

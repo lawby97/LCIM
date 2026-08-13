@@ -1,0 +1,40 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.unknown-distinct-ref",
+  "title": "distinctConcepts must reference existing concepts",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-unknown-distinct-ref.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "tickerA",
+      "kind": "ticker",
+      "authoritativeFieldNames": [
+        "ticker_a"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [
+    {
+      "conceptA": "tickerA",
+      "conceptB": "tickerB",
+      "mustNotConflate": "tickerA and tickerB are distinct",
+      "severity": "CRITICAL"
+    }
+  ],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "e2d49202b2f113e8629bb8bf940a5b9b0a7accb0130764c658ce78438360681a"
+}

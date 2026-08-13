@@ -1,0 +1,39 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.status-mismatch",
+  "title": "High-risk unresolved semantics must surface CONTRACT_REVIEW_REQUIRED",
+  "compileStatus": "COMPILED",
+  "riskClass": "FINANCIAL",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-status-mismatch.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "settlementAmount",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "settlement_amount"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [
+    {
+      "question": "exact rounding rule for settlement amounts is not established",
+      "riskClass": "FINANCIAL",
+      "impact": "wrong rounding changes money movement"
+    }
+  ],
+  "semanticDigest": "08fd2ff2f9dc4685be88936240c422aa732a2515ca1f463dca75794e391090cd"
+}

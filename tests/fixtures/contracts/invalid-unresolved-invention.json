@@ -1,0 +1,40 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.unresolved-invention",
+  "title": "Unresolved semantics must stay unresolved; invented answers are invalid",
+  "compileStatus": "CONTRACT_REVIEW_REQUIRED",
+  "riskClass": "MIGRATION",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-unresolved-invention.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "migrationTarget",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "migration_target"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [
+    {
+      "question": "exact backfill window for migrated rows",
+      "riskClass": "MIGRATION",
+      "impact": "backfill window changes data coverage",
+      "answer": "assume 90 days"
+    }
+  ],
+  "semanticDigest": "30c7337eba6cdd8303bfa816fe04d4ee3ec4c9f2ff40081980634b1df07bc6ff"
+}

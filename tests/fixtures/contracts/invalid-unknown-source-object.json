@@ -1,0 +1,33 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.unknown-source-object",
+  "title": "Concepts may only reference declared source objects",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-unknown-source-object.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "orphanField",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "orphan_field"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-two"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "41dfb756cdeaa81ba18d77fa24e491cfe8a4586171a8015bb245a882f1d1870e"
+}

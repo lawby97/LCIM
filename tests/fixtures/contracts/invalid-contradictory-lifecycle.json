@@ -1,0 +1,50 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.contradictory-lifecycle",
+  "title": "Transitions may only reference declared lifecycle states",
+  "compileStatus": "COMPILED",
+  "riskClass": "IRREVERSIBLE_LIFECYCLE_DATA",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-contradictory-lifecycle.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "recordState",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "record_state"
+      ],
+      "ownership": "fixture domain",
+      "lifecycle": [
+        "DRAFT",
+        "FINAL"
+      ],
+      "allowedTransitions": [
+        {
+          "from": "DRAFT",
+          "to": "FINAL",
+          "condition": "sealed"
+        },
+        {
+          "from": "FINAL",
+          "to": "ARCHIVED",
+          "condition": "archived"
+        }
+      ],
+      "sourceObjectKey": "source-one",
+      "failureBehavior": "ARCHIVED is not declared in the lifecycle"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "25c5a8ef5f88e47d9d744ab1107d48d098eb7b5fc8e6b296e6466325f373f7e6"
+}

@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/semantic-contract.v2.schema.json",
+  "$comment": "Sprint 04 — compiled semantic contract. Authoritative worker semantics compiled from explicit structured inputs: exact field names/casing/enums, exact identity/digest meanings, date/time representations, ownership/lifecycle, allowed transitions, forbidden alternatives, failure behavior, and negative acceptance evidence. compileStatus is CONTRACT_REVIEW_REQUIRED when any unresolvedSemantics entry is in a high-risk class (never invented by the compiler). semanticDigest is the deterministic content identity derived from ALL authority-bearing semantic content (see src/contracts/digest.mjs); a caller-supplied digest is never authoritative. negativeSideEffects carry a deterministic content-bound sideEffectId (see src/risk/side-effects.mjs). The schema uses only the Sprint-00 engine subset; semantic cross-field rules are enforced in src/contracts/validate.mjs (validateSemanticContract).",
+  "title": "LCIM V2 semantic contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "contractKey",
+    "title",
+    "compileStatus",
+    "riskClass",
+    "compiledAt",
+    "semanticDigest",
+    "sourceObjects",
+    "concepts",
+    "distinctConcepts",
+    "negativeSideEffects",
+    "factsEstablished",
+    "unresolvedSemantics"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.semantic-contract" },
+    "schemaVersion": { "const": "2.0.0" },
+    "contractKey": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "compileStatus": {
+      "enum": ["COMPILED", "CONTRACT_REVIEW_REQUIRED"]
+    },
+    "riskClass": {
+      "enum": [
+        "AUTHORIZATION_SECURITY_PROVIDER",
+        "MIGRATION",
+        "IDENTITY",
+        "FINANCIAL",
+        "PRODUCTION_EXECUTION",
+        "IRREVERSIBLE_LIFECYCLE_DATA",
+        "LOW_RISK"
+      ]
+    },
+    "compiledAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "semanticDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sourceObjects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "kind", "ref", "authority"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+          "kind": {
+            "enum": ["schema", "record", "config", "fixture", "documentation", "evidence"]
+          },
+          "ref": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "path": { "type": "string", "maxLength": 300 },
+          "authority": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "concepts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind", "authoritativeFieldNames", "ownership"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_]*$" },
+          "kind": {
+            "enum": [
+              "field",
+              "record",
+              "digest",
+              "identity",
+              "registry",
+              "ticker",
+              "timestamp",
+              "enum",
+              "provider",
+              "mutation",
+              "gate"
+            ]
+          },
+          "authoritativeFieldNames": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          },
+          "authoritativeEnum": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+          },
+          "digestMeaning": { "type": "string", "maxLength": 500 },
+          "identityMeaning": { "type": "string", "maxLength": 500 },
+          "dateTimeRepresentation": { "type": "string", "maxLength": 300 },
+          "ownership": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "lifecycle": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+          },
+          "allowedTransitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to"],
+              "properties": {
+                "from": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "to": { "type": "string", "minLength": 1, "maxLength": 100 },
+                "condition": { "type": "string", "maxLength": 500 }
+              }
+            }
+          },
+          "forbiddenAlternatives": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          },
+          "sourceObjectKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+          "failureBehavior": { "type": "string", "maxLength": 500 },
+          "notes": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "distinctConcepts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["conceptA", "conceptB", "mustNotConflate", "severity"],
+        "properties": {
+          "conceptA": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "conceptB": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "mustNotConflate": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "severity": { "enum": ["WARNING", "CRITICAL"] },
+          "warnIfSameValue": { "type": "boolean" },
+          "alsoDistinctFrom": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          }
+        }
+      }
+    },
+    "negativeSideEffects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "scope", "requirement", "expectedCount", "sideEffectId"],
+        "properties": {
+          "gate": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "scope": {
+            "enum": ["provider_factory", "network", "database", "lock", "mutation"]
+          },
+          "requirement": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "expectedCount": { "type": "integer" },
+          "sideEffectId": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" },
+          "evidenceKind": {
+            "enum": ["instrumented_counter", "audit_log", "transaction_count", "lock_acquire_count"]
+          }
+        }
+      }
+    },
+    "factsEstablished": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact", "evidence"],
+        "properties": {
+          "fact": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidence": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "unresolvedSemantics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question", "riskClass"],
+        "properties": {
+          "question": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "riskClass": {
+            "enum": [
+              "AUTHORIZATION_SECURITY_PROVIDER",
+              "MIGRATION",
+              "IDENTITY",
+              "FINANCIAL",
+              "PRODUCTION_EXECUTION",
+              "IRREVERSIBLE_LIFECYCLE_DATA",
+              "LOW_RISK"
+            ]
+          },
+          "impact": { "type": "string", "maxLength": 500 },
+          "requiredBy": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+          }
+        }
+      }
+    },
+    "compileWarnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "path": { "type": "string", "maxLength": 300 }
+        }
+      }
+    }
+  }
+}

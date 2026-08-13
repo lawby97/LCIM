@@ -1,0 +1,137 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "bl020.provider-construction-before-authz",
+  "title": "Provider construction must never precede persisted authorization",
+  "riskClass": "AUTHORIZATION_SECURITY_PROVIDER",
+  "sourceObjects": [
+    {
+      "key": "authz-flow-spec",
+      "kind": "evidence",
+      "ref": "explicit structured input: authorization flow instrumentation summary",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    },
+    {
+      "key": "authz-record-schema",
+      "kind": "schema",
+      "ref": "explicit structured input: persisted authorization record schema",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "authorizationGate",
+      "kind": "gate",
+      "authoritativeFieldNames": [
+        "authorization_passed"
+      ],
+      "ownership": "authorization boundary",
+      "sourceObjectKey": "authz-flow-spec",
+      "failureBehavior": "authorization failure terminates the flow before any capability is constructed"
+    },
+    {
+      "name": "providerFactory",
+      "kind": "provider",
+      "authoritativeFieldNames": [
+        "provider_factory"
+      ],
+      "ownership": "provider factory",
+      "sourceObjectKey": "authz-flow-spec",
+      "failureBehavior": "provider construction is only reachable after persisted authorization"
+    },
+    {
+      "name": "persistedAuthorization",
+      "kind": "record",
+      "authoritativeFieldNames": [
+        "authz_id",
+        "authz_state"
+      ],
+      "authoritativeEnum": [
+        "PENDING",
+        "AUTHORIZED",
+        "REVOKED"
+      ],
+      "ownership": "authorization store",
+      "lifecycle": [
+        "PENDING",
+        "AUTHORIZED",
+        "REVOKED"
+      ],
+      "allowedTransitions": [
+        {
+          "from": "PENDING",
+          "to": "AUTHORIZED",
+          "condition": "authorization persisted"
+        },
+        {
+          "from": "AUTHORIZED",
+          "to": "REVOKED",
+          "condition": "revocation persisted"
+        }
+      ],
+      "sourceObjectKey": "authz-record-schema",
+      "failureBehavior": "an in-memory 'authorized' flag is not a persisted authorization"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [
+    {
+      "gate": "authorization failure",
+      "scope": "provider_factory",
+      "requirement": "provider factory invocations remain zero before an authorization failure is handled",
+      "expectedCount": 0,
+      "evidenceKind": "instrumented_counter",
+      "sideEffectId": "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725"
+    },
+    {
+      "gate": "authorization failure",
+      "scope": "network",
+      "requirement": "outbound network requests remain zero before an authorization failure is handled",
+      "expectedCount": 0,
+      "evidenceKind": "audit_log",
+      "sideEffectId": "se_bc4d91c1ff291611a2ac0b65a5c96afa6bd646280bcc88083812ad78b6a54349"
+    },
+    {
+      "gate": "authorization failure",
+      "scope": "database",
+      "requirement": "database connections/transactions remain zero before an authorization failure is handled",
+      "expectedCount": 0,
+      "evidenceKind": "transaction_count",
+      "sideEffectId": "se_e5d946a5663ba1d2b2c6a08aa611ff73ad2c5bbd55366aed633c4e043a070f34"
+    },
+    {
+      "gate": "authorization failure",
+      "scope": "lock",
+      "requirement": "lock acquisitions remain zero before an authorization failure is handled",
+      "expectedCount": 0,
+      "evidenceKind": "lock_acquire_count",
+      "sideEffectId": "se_0ccf39f57d9157c23da10962238f9f9ed317fb913dcd59a691a357b3dc2302f7"
+    },
+    {
+      "gate": "authorization failure",
+      "scope": "mutation",
+      "requirement": "persisted mutations remain zero before an authorization failure is handled",
+      "expectedCount": 0,
+      "evidenceKind": "audit_log",
+      "sideEffectId": "se_baea0c7879c6c8e992727b85ac8e7e1831b055bddb011c7fe7cd30761bd4e49d"
+    }
+  ],
+  "factsEstablished": [
+    {
+      "fact": "provider factory construction is only reachable after persisted authorization",
+      "evidence": "authz-flow-spec (controller-provided)"
+    },
+    {
+      "fact": "authorization is persisted state, never an in-memory flag",
+      "evidence": "authz-record-schema (controller-provided)"
+    }
+  ],
+  "unresolvedSemantics": [
+    {
+      "question": "exact revocation propagation delay after a persisted REVOKED transition",
+      "riskClass": "LOW_RISK",
+      "impact": "documentation-only; does not affect the authorization-before-construction gate"
+    }
+  ],
+  "semanticDigest": "f0cbe551614c852c25d8f5470b97e0ce4a8ce74a2780ba96090d4b6fa142cb50"
+}

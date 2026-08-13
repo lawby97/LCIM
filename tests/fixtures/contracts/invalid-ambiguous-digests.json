@@ -1,0 +1,51 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.ambiguous-digests",
+  "title": "Distinct digests that share a meaning cannot be represented unambiguously",
+  "compileStatus": "COMPILED",
+  "riskClass": "IDENTITY",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-ambiguous-digests.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "decisionDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "decision_digest"
+      ],
+      "digestMeaning": "sha256 over the decision record",
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    },
+    {
+      "name": "evidenceDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "evidence_digest"
+      ],
+      "digestMeaning": "sha256 over the decision record",
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [
+    {
+      "conceptA": "decisionDigest",
+      "conceptB": "evidenceDigest",
+      "mustNotConflate": "decision and evidence digests are distinct",
+      "severity": "CRITICAL"
+    }
+  ],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "a705c5b0c0677e699d7df220a3ee514a422147268661336b62745cf135792900"
+}

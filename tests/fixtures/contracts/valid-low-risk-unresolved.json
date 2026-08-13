@@ -1,0 +1,44 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.low-risk-unresolved",
+  "title": "Low-risk unresolved semantics are recorded, never invented, and do not block",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/valid-low-risk-unresolved.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "displayName",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "display_name"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "display_name is the authoritative field",
+      "evidence": "source-one"
+    }
+  ],
+  "unresolvedSemantics": [
+    {
+      "question": "exact maximum length of display_name is not yet confirmed",
+      "riskClass": "LOW_RISK",
+      "impact": "cosmetic; does not affect correctness"
+    }
+  ],
+  "semanticDigest": "2506c07a8e25506ed6dd1113a9124837ecc4b16a24d053fc4d9c71ba404adf0f"
+}

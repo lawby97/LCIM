@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/acceptance-contract.v2.schema.json",
+  "$comment": "Sprint 04 — worker-ready repair/acceptance contract compiled from a validated AUTHORITATIVE semantic contract. Shape: objective, violation, required behavior, must_change, must_not_change, acceptance tests (including first-class negative side-effect expectations), and verification. sourceSemanticDigest binds the repair to the exact authority-bearing content of the source (never merely contractKey); rejectedAcceptanceRefs explicitly names the source acceptance items (sideEffectIds) that failed; mustChange is bounded to the repair scope derived from those rejected items; frozenSemantics carries the source's preserved requirements verbatim as constraints. negativeSideEffects carry the deterministic content-bound sideEffectId; acceptance tests reference side effects by negativeSideEffectId, never by gate::scope alone. repairId follows the shared LCIM ID convention (lcim_repair_<32 hex); generated and validated in src/contracts/repair.mjs. The schema uses only the Sprint-00 engine subset; cross-document rules are enforced in src/contracts/validate.mjs (validateAcceptanceContract).",
+  "title": "LCIM V2 worker-ready repair/acceptance contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "repairId",
+    "contractKey",
+    "sourceSemanticDigest",
+    "rejectedAcceptanceRefs",
+    "objective",
+    "violation",
+    "requiredBehavior",
+    "mustChange",
+    "mustNotChange",
+    "acceptanceTests",
+    "negativeSideEffects",
+    "frozenSemantics",
+    "verification",
+    "createdAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.acceptance-contract" },
+    "schemaVersion": { "const": "2.0.0" },
+    "repairId": { "type": "string", "pattern": "^lcim_repair_[0-9a-f]{32}$" },
+    "contractKey": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "sourceSemanticDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rejectedAcceptanceRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" }
+    },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "violation": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "requiredBehavior": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "mustChange": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "change"],
+        "properties": {
+          "target": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "change": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "mustNotChange": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "reason"],
+        "properties": {
+          "target": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "acceptanceTests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "expectation"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "command": { "type": "string", "maxLength": 500 },
+          "expectation": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "negativeSideEffectId": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" },
+          "negativeSideEffectRef": { "type": "string", "maxLength": 300 },
+          "negativeSideEffectScope": {
+            "enum": ["provider_factory", "network", "database", "lock", "mutation"]
+          },
+          "expectedSideEffectCount": { "type": "integer" }
+        }
+      }
+    },
+    "negativeSideEffects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "scope", "requirement", "expectedCount", "sideEffectId"],
+        "properties": {
+          "gate": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "scope": {
+            "enum": ["provider_factory", "network", "database", "lock", "mutation"]
+          },
+          "requirement": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "expectedCount": { "type": "integer" },
+          "sideEffectId": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" },
+          "evidenceKind": {
+            "enum": ["instrumented_counter", "audit_log", "transaction_count", "lock_acquire_count"]
+          }
+        }
+      }
+    },
+    "frozenSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceObjects",
+        "concepts",
+        "distinctConcepts",
+        "negativeSideEffects",
+        "factsEstablished",
+        "unresolvedSemantics"
+      ],
+      "properties": {
+        "sourceObjects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "kind", "ref", "authority"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+              "kind": {
+                "enum": ["schema", "record", "config", "fixture", "documentation", "evidence"]
+              },
+              "ref": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "path": { "type": "string", "maxLength": 300 },
+              "authority": { "type": "string", "minLength": 1, "maxLength": 300 }
+            }
+          }
+        },
+        "concepts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "authoritativeFieldNames", "ownership"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_]*$" },
+              "kind": {
+                "enum": [
+                  "field",
+                  "record",
+                  "digest",
+                  "identity",
+                  "registry",
+                  "ticker",
+                  "timestamp",
+                  "enum",
+                  "provider",
+                  "mutation",
+                  "gate"
+                ]
+              },
+              "authoritativeFieldNames": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+              },
+              "authoritativeEnum": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+              },
+              "digestMeaning": { "type": "string", "maxLength": 500 },
+              "identityMeaning": { "type": "string", "maxLength": 500 },
+              "dateTimeRepresentation": { "type": "string", "maxLength": 300 },
+              "ownership": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "lifecycle": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+              },
+              "allowedTransitions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["from", "to"],
+                  "properties": {
+                    "from": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "to": { "type": "string", "minLength": 1, "maxLength": 100 },
+                    "condition": { "type": "string", "maxLength": 500 }
+                  }
+                }
+              },
+              "forbiddenAlternatives": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+              },
+              "sourceObjectKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+              "failureBehavior": { "type": "string", "maxLength": 500 },
+              "notes": { "type": "string", "maxLength": 500 }
+            }
+          }
+        },
+        "distinctConcepts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["conceptA", "conceptB", "mustNotConflate", "severity"],
+            "properties": {
+              "conceptA": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "conceptB": { "type": "string", "minLength": 1, "maxLength": 200 },
+              "mustNotConflate": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "severity": { "enum": ["WARNING", "CRITICAL"] },
+              "warnIfSameValue": { "type": "boolean" },
+              "alsoDistinctFrom": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+              }
+            }
+          }
+        },
+        "negativeSideEffects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["gate", "scope", "requirement", "expectedCount", "sideEffectId"],
+            "properties": {
+              "gate": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "scope": {
+                "enum": ["provider_factory", "network", "database", "lock", "mutation"]
+              },
+              "requirement": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "expectedCount": { "type": "integer" },
+              "sideEffectId": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" },
+              "evidenceKind": {
+                "enum": ["instrumented_counter", "audit_log", "transaction_count", "lock_acquire_count"]
+              }
+            }
+          }
+        },
+        "factsEstablished": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fact", "evidence"],
+            "properties": {
+              "fact": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "evidence": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        },
+        "unresolvedSemantics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["question", "riskClass"],
+            "properties": {
+              "question": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "riskClass": {
+                "enum": [
+                  "AUTHORIZATION_SECURITY_PROVIDER",
+                  "MIGRATION",
+                  "IDENTITY",
+                  "FINANCIAL",
+                  "PRODUCTION_EXECUTION",
+                  "IRREVERSIBLE_LIFECYCLE_DATA",
+                  "LOW_RISK"
+                ]
+              },
+              "impact": { "type": "string", "maxLength": 500 },
+              "requiredBy": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["method", "expectation"],
+        "properties": {
+          "method": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "expectation": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "findingRefs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^lcim_finding_[0-9a-f]{32}$" }
+    },
+    "riskClass": {
+      "enum": [
+        "AUTHORIZATION_SECURITY_PROVIDER",
+        "MIGRATION",
+        "IDENTITY",
+        "FINANCIAL",
+        "PRODUCTION_EXECUTION",
+        "IRREVERSIBLE_LIFECYCLE_DATA",
+        "LOW_RISK"
+      ]
+    },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.field-name-overlap",
+  "title": "One authoritative field cannot belong to two concepts",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-field-name-overlap.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "sourceValue",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "shared_field"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    },
+    {
+      "name": "currentValue",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "shared_field"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "34e2cc997c65bd416e72cdd223f9b4c6d334b7d919f858a5d95f25b2a84e33c9"
+}

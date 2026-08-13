@@ -1,0 +1,44 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "bl020.serial-date-time-format",
+  "title": "Serial/date-time representations are exact and non-negotiable",
+  "riskClass": "LOW_RISK",
+  "sourceObjects": [
+    {
+      "key": "serial-format-spec",
+      "kind": "documentation",
+      "ref": "explicit structured input: serial/date-time format specification",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "serialDate",
+      "kind": "timestamp",
+      "authoritativeFieldNames": [
+        "serial_date"
+      ],
+      "dateTimeRepresentation": "ISO-8601 UTC with milliseconds, e.g. 2025-01-02T03:04:05.678Z; never local time, never epoch seconds, never a serial integer",
+      "ownership": "serialization layer",
+      "sourceObjectKey": "serial-format-spec",
+      "forbiddenAlternatives": [
+        "MM/dd/yyyy",
+        "unix_ms",
+        "serial_integer",
+        "serial_date_string"
+      ],
+      "failureBehavior": "any representation outside ISO-8601 UTC is rejected as malformed"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "serial dates are ISO-8601 UTC with milliseconds",
+      "evidence": "serial-format-spec (controller-provided)"
+    }
+  ],
+  "unresolvedSemantics": [],
+  "semanticDigest": "7b9315a7bddfbd5feb1175d3d89e141eacc1d4b7236931238513ffea862dfdd2"
+}

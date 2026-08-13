@@ -1,0 +1,41 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.negative-side-effect-count",
+  "title": "Negative side-effect expectedCount must be an integer >= 0",
+  "compileStatus": "COMPILED",
+  "riskClass": "PRODUCTION_EXECUTION",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-negative-side-effect-count.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "executionGate",
+      "kind": "gate",
+      "authoritativeFieldNames": [
+        "execution_gate"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [
+    {
+      "gate": "gate failure",
+      "scope": "mutation",
+      "requirement": "mutations remain zero",
+      "expectedCount": -1,
+      "sideEffectId": "se_22a7c7689fd1caec8a4cda35fed9a894946235a33653ae5796adf927a4fb4e5f"
+    }
+  ],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "83a62a6135fa3dc27945a907ece46a5638f3564bb9e82c69f0bcbee679cb50f5"
+}

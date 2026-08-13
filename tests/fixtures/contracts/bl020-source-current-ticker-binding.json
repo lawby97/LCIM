@@ -1,0 +1,65 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "bl020.source-current-ticker-binding",
+  "title": "Source ticker and current ticker are distinct bindings, never interchangeable",
+  "riskClass": "IDENTITY",
+  "sourceObjects": [
+    {
+      "key": "ticker-binding-config",
+      "kind": "config",
+      "ref": "explicit structured input: ticker binding configuration v1",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "sourceTicker",
+      "kind": "identity",
+      "authoritativeFieldNames": [
+        "source_ticker"
+      ],
+      "identityMeaning": "binds to the source-of-truth registry ticker T at the moment the decision was read",
+      "ownership": "source-of-truth registry",
+      "sourceObjectKey": "ticker-binding-config",
+      "forbiddenAlternatives": [
+        "current_ticker",
+        "sourceTickerValue"
+      ],
+      "failureBehavior": "a sourceTicker that equals the current ticker by coincidence is still the source ticker"
+    },
+    {
+      "name": "currentTicker",
+      "kind": "identity",
+      "authoritativeFieldNames": [
+        "current_ticker"
+      ],
+      "identityMeaning": "binds to the currently visible registry ticker at the time of evaluation",
+      "ownership": "registry view",
+      "sourceObjectKey": "ticker-binding-config",
+      "forbiddenAlternatives": [
+        "source_ticker",
+        "tickerNow"
+      ],
+      "failureBehavior": "currentTicker is read live; it never replaces sourceTicker in binding checks"
+    }
+  ],
+  "distinctConcepts": [
+    {
+      "conceptA": "sourceTicker",
+      "conceptB": "currentTicker",
+      "mustNotConflate": "source/current ticker binding: equality of values does not make the bindings interchangeable; sourceTicker is frozen at decision time, currentTicker is live",
+      "severity": "CRITICAL",
+      "warnIfSameValue": true
+    }
+  ],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "sourceTicker is captured at decision-read time; currentTicker is read at evaluation time",
+      "evidence": "ticker-binding-config (controller-provided)"
+    }
+  ],
+  "unresolvedSemantics": [],
+  "semanticDigest": "bebe61f8fa0fcf3ba359c156fe24932924db31f742999caddc4876fdf8d928ed"
+}

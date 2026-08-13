@@ -1,0 +1,39 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.minimal",
+  "title": "Minimal valid semantic contract",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/valid-semantic-contract.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "ticker",
+      "kind": "ticker",
+      "authoritativeFieldNames": [
+        "ticker_value"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one",
+      "failureBehavior": "no ticker is invented"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "the fixture ticker field is ticker_value",
+      "evidence": "source-one"
+    }
+  ],
+  "unresolvedSemantics": [],
+  "semanticDigest": "34eb82df6918c9d77e90ba2f40c08ea6b32f992c86f916910d3ae3db0eba4365"
+}

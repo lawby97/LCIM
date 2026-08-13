@@ -1,0 +1,51 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.warning-omissions",
+  "title": "Valid contract that surfaces warnings (missing source of truth, missing digest meaning)",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/valid-warning-omissions.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "payloadDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "payload_digest"
+      ],
+      "ownership": "fixture domain",
+      "forbiddenAlternatives": [
+        "payload_digest_hex",
+        "PayloadDigest"
+      ]
+    },
+    {
+      "name": "unboundField",
+      "kind": "field",
+      "authoritativeFieldNames": [
+        "unbound_field"
+      ],
+      "ownership": "fixture domain"
+    }
+  ],
+  "distinctConcepts": [
+    {
+      "conceptA": "payloadDigest",
+      "conceptB": "unboundField",
+      "mustNotConflate": "digests and fields are different kinds",
+      "severity": "WARNING"
+    }
+  ],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "d226cbf44b7ad5332da2512ec22b7817a8d792bd24d992e382a030ae5781645a"
+}

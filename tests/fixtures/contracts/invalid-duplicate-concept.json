@@ -1,0 +1,42 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.duplicate-concept",
+  "title": "Duplicate concept names are invalid",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "source-one",
+      "kind": "fixture",
+      "ref": "tests/fixtures/contracts/invalid-duplicate-concept.json",
+      "authority": "Sprint 04 fixture"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "ticker",
+      "kind": "ticker",
+      "authoritativeFieldNames": [
+        "ticker_a"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    },
+    {
+      "name": "ticker",
+      "kind": "ticker",
+      "authoritativeFieldNames": [
+        "ticker_b"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "source-one"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "d3a17a5c3801940794287437b9d9693a0f921d184852d265d7c0ac4588be1bce"
+}

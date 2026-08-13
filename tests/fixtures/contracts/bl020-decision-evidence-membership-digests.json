@@ -1,0 +1,90 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "bl020.decision-evidence-membership-digests",
+  "title": "Decision, evidence, and membership digests are distinct identities",
+  "riskClass": "IDENTITY",
+  "sourceObjects": [
+    {
+      "key": "digest-registry",
+      "kind": "record",
+      "ref": "explicit structured input: digest registry table v2",
+      "authority": "controller-provided structured input (Sprint 04 fixture)"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "decisionDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "decision_digest"
+      ],
+      "digestMeaning": "sha256 over the decision record body only (decided_at, decision, signer)",
+      "ownership": "decision ledger",
+      "sourceObjectKey": "digest-registry",
+      "forbiddenAlternatives": [
+        "decisionEvidenceDigest",
+        "decisionDigestHex"
+      ],
+      "failureBehavior": "a digest over any other payload is not a decisionDigest"
+    },
+    {
+      "name": "evidenceDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "evidence_digest"
+      ],
+      "digestMeaning": "sha256 over the evidence payload only (supporting files, attestations)",
+      "ownership": "evidence store",
+      "sourceObjectKey": "digest-registry",
+      "forbiddenAlternatives": [
+        "evidenceDecisionDigest"
+      ],
+      "failureBehavior": "a digest over the decision record is not an evidenceDigest"
+    },
+    {
+      "name": "membershipDigest",
+      "kind": "digest",
+      "authoritativeFieldNames": [
+        "membership_digest"
+      ],
+      "digestMeaning": "sha256 over the membership registry entry only (member, role, joined_at)",
+      "ownership": "membership registry",
+      "sourceObjectKey": "digest-registry",
+      "forbiddenAlternatives": [
+        "memberDigest",
+        "membershipDecisionDigest"
+      ],
+      "failureBehavior": "a digest over membership metadata is not a decisionDigest or evidenceDigest"
+    }
+  ],
+  "distinctConcepts": [
+    {
+      "conceptA": "decisionDigest",
+      "conceptB": "evidenceDigest",
+      "mustNotConflate": "decision digest covers the decision record only; evidence digest covers evidence payloads; they are never interchangeable",
+      "severity": "CRITICAL"
+    },
+    {
+      "conceptA": "decisionDigest",
+      "conceptB": "membershipDigest",
+      "mustNotConflate": "membership digest identifies a registry entry, never a decision",
+      "severity": "CRITICAL"
+    },
+    {
+      "conceptA": "evidenceDigest",
+      "conceptB": "membershipDigest",
+      "mustNotConflate": "evidence digests and membership digests live in different registries",
+      "severity": "WARNING"
+    }
+  ],
+  "negativeSideEffects": [],
+  "factsEstablished": [
+    {
+      "fact": "decisionDigest, evidenceDigest, membershipDigest cover disjoint payloads",
+      "evidence": "digest-registry definitions (controller-provided)"
+    }
+  ],
+  "unresolvedSemantics": [],
+  "semanticDigest": "db0e57335db4031a0e9d7bd5c8d287b37a336becb0e09343f3eb97911b63f841"
+}

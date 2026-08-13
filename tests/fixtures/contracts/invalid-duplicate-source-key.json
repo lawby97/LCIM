@@ -1,0 +1,40 @@
+{
+  "schemaName": "lcim.semantic-contract",
+  "schemaVersion": "2.0.0",
+  "contractKey": "fixture.invalid.duplicate-source-key",
+  "title": "Duplicate source object keys are ambiguous and must fail closed",
+  "compileStatus": "COMPILED",
+  "riskClass": "LOW_RISK",
+  "compiledAt": "2025-01-01T00:00:00.000Z",
+  "sourceObjects": [
+    {
+      "key": "ticker-source",
+      "kind": "fixture",
+      "ref": "source-A",
+      "authority": "current"
+    },
+    {
+      "key": "ticker-source",
+      "kind": "fixture",
+      "ref": "source-B",
+      "authority": "historical"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "ticker",
+      "kind": "ticker",
+      "authoritativeFieldNames": [
+        "ticker_value"
+      ],
+      "ownership": "fixture domain",
+      "sourceObjectKey": "ticker-source",
+      "failureBehavior": "a concept referencing ticker-source cannot know which source object supplies authority"
+    }
+  ],
+  "distinctConcepts": [],
+  "negativeSideEffects": [],
+  "factsEstablished": [],
+  "unresolvedSemantics": [],
+  "semanticDigest": "877e4ea48de685d939239b6844fd47aa9992788ee86b264d0b45d485b69217ab"
+}
