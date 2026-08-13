@@ -46,10 +46,14 @@
  *   implementation-facing calls (SOL_DIAGNOSE, SOL_FINAL_REVIEW,
  *   SOL_RECHECK) require implementation-authoritative (COMPILED) bound
  *   sources (SOURCE_NOT_IMPLEMENTATION_AUTHORITATIVE);
- * - RECHECK: the prior finding must resolve to an actual finding of the
- *   bound prior response, whose prior chain must be consistent, and the
- *   frozen priorFindingDigest must match (PRIOR_FINDING_UNKNOWN,
- *   PRIOR_CHAIN_INVALID, PRIOR_FINDING_DIGEST_MISMATCH); neighboring
+ * - RECHECK: the prior ASK must itself be a valid compiled SOL ask,
+ *   then the prior finding must resolve to an actual finding of the
+ *   bound prior response (whose response binds to that validated prior
+ *   ask), and the frozen priorFindingDigest must match
+ *   (PRIOR_FINDING_UNKNOWN, PRIOR_CHAIN_INVALID,
+ *   PRIOR_FINDING_DIGEST_MISMATCH); an invented partial prior ask never
+ *   anchors a chain, and a prior ask that is itself a RECHECK ask does
+ *   not recurse (its own provenance is not re-validated here); neighboring
  *   invariants resolve to a closed authoritative set: declared
  *   requirementRefs of the ask and/or named invariants of the prior
  *   FINAL_REVIEW ask (NEIGHBOR_UNBOUND);
@@ -673,13 +677,32 @@ function applyPriorProvenanceRules(doc, prior, errors) {
     push(errors, 'recheck.priorFindingRef', 'PRIOR_CHAIN_INVALID', 'RECHECK requires the validated prior compiled ask and prior compiled response');
     return;
   }
-  if (doc.recheck?.priorAskId !== priorAsk.askId || doc.recheck?.priorResponseId !== priorResponse.responseId) {
-    push(errors, 'recheck.priorAskId', 'PRIOR_CHAIN_INVALID', `frozen provenance (${doc.recheck?.priorAskId}, ${doc.recheck?.priorResponseId}) does not bind to the supplied prior ask/response (${priorAsk.askId}, ${priorResponse.responseId})`);
+  // (1) the prior ask must ITSELF be a valid compiled SOL ask
+  // (SOL-S06-FINAL-001). A partial invented prior ask that carries only
+  // enough plausible fields (pattern-valid askId, matching callType,
+  // FINAL_REVIEW checklist structure) to feed later provenance use is not
+  // a compiled ask and fails the exact-prior-chain requirement closed.
+  // Validated with the same Sprint-06 machinery as an actual compiled ask
+  // (no sources/prior opts: the immediate chain is all the controller
+  // supplies, and a prior ask that is itself a RECHECK ask cannot recurse
+  // — its own provenance is not re-validated here, so validation depth is
+  // bounded at one prior link).
+  const priorAskCheck = validateSolAsk(priorAsk);
+  if (!priorAskCheck.valid) {
+    push(errors, 'recheck.priorAskId', 'PRIOR_CHAIN_INVALID', `the prior ask is not a valid compiled SOL ask (${priorAskCheck.errors[0]?.message ?? 'invalid'}); an invented partial prior ask can never anchor a RECHECK chain`);
+    return;
   }
-  // the prior response itself must bind to its prior ask
+  // (2) the prior response itself must bind to that validated prior ask
   const priorChain = validateSolResponse(priorResponse, { ask: priorAsk });
   if (!priorChain.valid) {
     push(errors, 'recheck.priorFindingRef', 'PRIOR_CHAIN_INVALID', `the prior response does not bind to its prior ask (${priorChain.errors[0]?.message ?? 'invalid'})`);
+    return;
+  }
+  // (3) the referenced prior finding must actually belong to that chain:
+  // frozen provenance ids bind, the finding resolves to a real finding of
+  // the bound prior response, and the frozen digest matches its content.
+  if (doc.recheck?.priorAskId !== priorAsk.askId || doc.recheck?.priorResponseId !== priorResponse.responseId) {
+    push(errors, 'recheck.priorAskId', 'PRIOR_CHAIN_INVALID', `frozen provenance (${doc.recheck?.priorAskId}, ${doc.recheck?.priorResponseId}) does not bind to the supplied prior ask/response (${priorAsk.askId}, ${priorResponse.responseId})`);
   }
   const findings = Array.isArray(priorResponse.findings) ? priorResponse.findings : [];
   const finding = findings.find((f) => f?.findingId === doc.recheck?.priorFindingRef);

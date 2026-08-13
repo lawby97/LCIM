@@ -13,6 +13,14 @@
  * evidence; RECHECK responses may cite only prior finding / bound
  * neighbors / retained delta evidence. (S10 orchestration is NOT
  * implemented — this is the S06 data/validation contract only.)
+ *
+ * SOL-S06-FINAL-001 regression: the prior ASK itself must be a valid
+ * compiled SOL ask before the prior response (and then the prior
+ * finding/provenance) is validated against it; a partial invented prior
+ * ask with plausible askId/callType/checklist fields fails closed with
+ * PRIOR_CHAIN_INVALID in BOTH the compilation path and the independent
+ * applyPriorProvenanceRules() revalidation path, and a prior ask that is
+ * itself a RECHECK ask never recurses.
  */
 
 import test from 'node:test';
@@ -20,6 +28,7 @@ import assert from 'node:assert/strict';
 import { compileSolAsk } from '../../src/sol/ask-compiler/compiler.mjs';
 import { compileSolResponse } from '../../src/sol/ask-compiler/response.mjs';
 import { SolAskError, SolResponseError } from '../../src/sol/contracts/errors.mjs';
+import { validateSolAsk, validateSolResponse } from '../../src/sol/contracts/validate.mjs';
 import { TRUNCATION_MARKER_REF } from '../../src/sol/contracts/evidence.mjs';
 import {
   compileProviderContract,
@@ -373,4 +382,130 @@ test('R2-G: truncation marker remains non-citable in RECHECK findings', () => {
       ),
     (err) => err instanceof SolResponseError && hasCode(err, 'EVIDENCE_REF_MARKER'),
   );
+});
+
+// ============================================================================
+// SOL-S06-FINAL-001 — THE PRIOR ASK ITSELF MUST BE A VALID COMPILED SOL ASK
+// ============================================================================
+//
+// A partial INVENTED prior ask carrying only plausible fields (pattern-valid
+// askId, matching callType, FINAL_REVIEW checklist structure) must never
+// anchor a RECHECK chain: the prior ask is validated first with the same
+// Sprint-06 machinery as an actual compiled ask, then the prior response
+// against that validated ask, then the prior finding/provenance. Both the
+// compilation path (compileSolAsk) and the independent validation path
+// (validateSolAsk -> applyPriorProvenanceRules) fail closed with
+// PRIOR_CHAIN_INVALID.
+
+/**
+ * A PARTIAL prior ask: pattern-valid askId, matching callType, and a
+ * FINAL_REVIEW checklist — exactly the plausible fields the previous
+ * vulnerable path consumed — but NOT a valid compiled SOL ask (no
+ * schemaName/schemaVersion, no singleDecisionQuestion/whyNeeded, no
+ * contractRefs, no evidence pool, no conditions, no
+ * requiredResponseShape/repairConstraints/evidenceBudget, no compiledAt).
+ * The paired response is a REAL compiled response shape that binds to the
+ * partial ask (askId/callType) and carries the finding — the response-side
+ * step the old path relied on succeeds; only the prior-ask step fails.
+ */
+function buildInventedPriorChain() {
+  const genuine = buildPriorFinalReview();
+  const inventedAsk = {
+    askId: genuine.ask.askId,
+    callType: 'SOL_FINAL_REVIEW',
+    finalReview: genuine.ask.finalReview,
+  };
+  const inventedResponse = {
+    ...genuine.response,
+    askId: inventedAsk.askId,
+  };
+  return { inventedAsk, inventedResponse, genuine };
+}
+
+test('H: invented partial prior ask (plausible askId/callType/checklist) => PRIOR_CHAIN_INVALID', () => {
+  const { inventedAsk, inventedResponse } = buildInventedPriorChain();
+  // The fixture is precise: the prior ask is NOT a valid compiled ask...
+  assert.equal(validateSolAsk(inventedAsk).valid, false);
+  // ...while every response-side property the previous vulnerable path
+  // depended on still holds (response binds to the partial ask, finding
+  // present), so the rejection is specifically the prior-ask validation,
+  // not an unrelated missing finding/evidence field.
+  const respCheck = validateSolResponse(inventedResponse, { ask: inventedAsk });
+  assert.equal(respCheck.valid, true, JSON.stringify(respCheck.errors));
+  assert.ok(inventedResponse.findings.some((f) => f.findingId === PRIOR_FINDING_ID));
+  assert.throws(
+    () =>
+      compileSolAsk(recheckInput(), {
+        compiledAt: NOW,
+        sources: SOURCES,
+        prior: { ask: inventedAsk, response: inventedResponse },
+      }),
+    (err) => {
+      assert.ok(err instanceof SolAskError && hasCode(err, 'PRIOR_CHAIN_INVALID'));
+      // fails closed on the prior ASK, with the external provenance semantics
+      assert.match(err.message, /prior ask is not a valid compiled SOL ask/);
+      return true;
+    },
+  );
+});
+
+test('I: independent provenance revalidation rejects the same invented prior chain', () => {
+  const prior = buildPriorFinalReview();
+  const ask = compileSolAsk(recheckInput(), { compiledAt: NOW, sources: SOURCES, prior });
+  const { inventedAsk, inventedResponse } = buildInventedPriorChain();
+  // The compiled RECHECK artifact itself is genuine and its frozen
+  // provenance ids match the invented chain (the invented objects reuse
+  // the genuine ids), so the ONLY possible failure is the prior-ask
+  // validation — proving applyPriorProvenanceRules() fails closed on the
+  // invented prior chain independently of the compiler.
+  const result = validateSolAsk(ask, {
+    sources: SOURCES,
+    prior: { ask: inventedAsk, response: inventedResponse },
+  });
+  assert.equal(result.valid, false);
+  assert.equal(result.errors.length, 1);
+  assert.equal(result.errors[0].code, 'PRIOR_CHAIN_INVALID');
+});
+
+test('I2: genuine compiled prior chain passes independent provenance revalidation', () => {
+  const prior = buildPriorFinalReview();
+  const ask = compileSolAsk(recheckInput(), { compiledAt: NOW, sources: SOURCES, prior });
+  const result = validateSolAsk(ask, { sources: SOURCES, prior });
+  assert.equal(result.valid, true, JSON.stringify(result.errors));
+});
+
+test('J: prior ask that is itself a genuine compiled RECHECK ask validates without recursion', () => {
+  const inner = buildPriorFinalReview();
+  const innerRecheckAsk = compileSolAsk(recheckInput(), { compiledAt: NOW, sources: SOURCES, prior: inner });
+  const innerFindingId = 'lcim_finding_' + 'e'.repeat(32);
+  const innerRecheckResponse = compileSolResponse(
+    {
+      askId: innerRecheckAsk.askId,
+      callType: 'SOL_RECHECK',
+      verdict: 'NOT_RESOLVED',
+      decisionSummary: 'the prior finding still fails on the delta evidence',
+      evidence: [],
+      findings: [
+        {
+          findingId: innerFindingId,
+          severity: 'CRITICAL',
+          invariantRef: PRIOR_FINDING_ID,
+          summary: 'prior provider_factory finding still fails on delta evidence',
+          evidenceRefs: ['ev.delta'],
+        },
+      ],
+    },
+    { compiledAt: NOW, ask: innerRecheckAsk, sources: SOURCES },
+  );
+  // Outer RECHECK anchored on the inner RECHECK chain: the prior ask is a
+  // compiled RECHECK ask (itself carrying frozen provenance) and must
+  // validate as a real compiled ask without unbounded/self-recursive
+  // validation of the chain behind it.
+  const outer = compileSolAsk(
+    recheckInput({ recheck: { ...recheckInput().recheck, priorFindingRef: innerFindingId } }),
+    { compiledAt: NOW, sources: SOURCES, prior: { ask: innerRecheckAsk, response: innerRecheckResponse } },
+  );
+  assert.equal(outer.recheck.priorAskId, innerRecheckAsk.askId);
+  assert.equal(outer.recheck.priorResponseId, innerRecheckResponse.responseId);
+  assert.equal(outer.recheck.priorFindingRef, innerFindingId);
 });

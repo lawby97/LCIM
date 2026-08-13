@@ -186,6 +186,21 @@ export function compileSolAsk(input, opts = {}) {
     }
     const priorAsk = opts.prior.ask;
     const priorResponse = opts.prior.response;
+    // (1) the prior ask must ITSELF be a valid compiled SOL ask — a partial
+    // invented prior ask carrying only plausible askId/callType/checklist
+    // fields is not a compiled ask (SOL-S06-FINAL-001). Validated with the
+    // same Sprint-06 machinery (no sources/prior opts: the immediate chain
+    // is all the controller supplies, and a prior ask that is itself a
+    // RECHECK ask cannot recurse).
+    const priorAskCheck = validateSolAsk(priorAsk);
+    if (!priorAskCheck.valid) {
+      throw new SolAskError(
+        `SOL RECHECK prior chain rejected: the prior ask is not a valid compiled SOL ask (${priorAskCheck.errors[0]?.message ?? 'invalid'}); an invented partial prior ask can never anchor a RECHECK chain`,
+        'PRIOR_CHAIN_INVALID',
+        { errors: priorAskCheck.errors },
+      );
+    }
+    // (2) the prior response must bind to that validated prior ask
     const priorChain = validateSolResponse(priorResponse, { ask: priorAsk });
     if (!priorChain.valid) {
       throw new SolAskError(
