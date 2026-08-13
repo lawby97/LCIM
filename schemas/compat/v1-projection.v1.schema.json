@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/compat/v1-projection.v1.schema.json",
+  "$comment": "Sprint 09 owned: the normalized V2-compatible projection of V1 evidence. provenance is pinned to V1_COMPAT — every fact originated from V1 compatibility interpretation, never from a native V2 canonical ledger, and no fact implies native V2 validity. UNKNOWN_V1 is the reserved sentinel for facts that cannot be established from V1 evidence; it is NEVER replaced by an invented value. Failure-closed pins: controller.v2Disposition, usageCost.tokens, usageCost.cost, semanticReview.findings, and coverage.laterInvocationRecords are pinned to UNKNOWN_V1 (V1 evidence can never establish a V2 controller disposition, usage/cost, review findings, or later invocation records); controller.manualIntegrationObserved and v1RejectionObserved are true|UNKNOWN_V1 (absence of evidence is never 'not integrated'/'not rejected'); workUnitIdV2PatternCompatible is true|false|UNKNOWN_V1 (an unavailable workUnitId stays UNKNOWN_V1 — unknown compatibility is never known incompatibility); patch.preserved is always true (a schema-invalid handoff never erases the possibility of a useful patch). Boolean/int/string facts that may be unknown use the sentinel; empty strings are rejected by the code-side rule in src/compat/v1/schemas.mjs.",
+  "title": "LCIM V1 compatibility projection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "provenance",
+    "sourceKind",
+    "sourceVersion",
+    "sourceByteCount",
+    "sourceDigest",
+    "workUnits"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.v1.projection" },
+    "schemaVersion": { "const": "1.0.0" },
+    "provenance": { "const": "V1_COMPAT" },
+    "sourceKind": { "enum": ["ledger", "handoff", "response"] },
+    "sourceVersion": { "const": "1.0" },
+    "sourceByteCount": { "type": "integer" },
+    "sourceDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventCount", "chainValid", "workUnitCount"],
+      "properties": {
+        "eventCount": { "type": "integer" },
+        "chainValid": { "type": "boolean" },
+        "workUnitCount": { "type": "integer" }
+      }
+    },
+    "workUnits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workUnitId",
+          "workUnitIdV2PatternCompatible",
+          "assignment",
+          "handoff",
+          "patch",
+          "controller",
+          "coverage",
+          "usageCost",
+          "semanticReview"
+        ],
+        "properties": {
+          "workUnitId": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "workUnitIdV2PatternCompatible": {
+            "type": ["boolean", "string"],
+            "enum": [true, false, "UNKNOWN_V1"]
+          },
+          "assignment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["present", "taskSummary", "baseShaClaim"],
+            "properties": {
+              "present": { "type": "boolean" },
+              "taskSummary": { "type": "string", "maxLength": 500 },
+              "baseShaClaim": { "type": "string", "maxLength": 64 }
+            }
+          },
+          "handoff": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "present",
+              "parseable",
+              "normalization",
+              "historicallySchemaValid",
+              "v2WorkerSchemaValid",
+              "defect",
+              "workerClaim"
+            ],
+            "properties": {
+              "present": { "type": "boolean" },
+              "parseable": {
+                "type": ["boolean", "string"],
+                "enum": [true, false, "UNKNOWN_V1"]
+              },
+              "normalization": {
+                "type": "string",
+                "enum": ["none", "fence", "prose-wrapped", "UNKNOWN_V1"]
+              },
+              "historicallySchemaValid": {
+                "type": ["boolean", "string"],
+                "enum": [true, false, "UNKNOWN_V1"]
+              },
+              "v2WorkerSchemaValid": {
+                "type": ["boolean", "string"],
+                "enum": [true, false, "UNKNOWN_V1"]
+              },
+              "defect": {
+                "type": "string",
+                "enum": ["TRANSPORT_MALFORMED", "SCHEMA_MISMATCH", "NONE", "UNKNOWN_V1"]
+              },
+              "workerClaim": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status",
+                  "statusInV1Vocabulary",
+                  "v2WorkerStatus",
+                  "summary",
+                  "testLogPath",
+                  "testExitStatus",
+                  "changedFileCount",
+                  "patchHashClaim",
+                  "evidenceRefCount"
+                ],
+                "properties": {
+                  "status": { "type": "string", "maxLength": 100 },
+                  "statusInV1Vocabulary": {
+                    "type": ["boolean", "string"],
+                    "enum": [true, false, "UNKNOWN_V1"]
+                  },
+                  "v2WorkerStatus": {
+                    "type": "string",
+                    "enum": ["WORK_COMPLETE", "BLOCKED", "FAILED", "NO_CHANGE", "UNKNOWN_V1"]
+                  },
+                  "summary": { "type": "string", "maxLength": 2000 },
+                  "testLogPath": { "type": "string", "maxLength": 500 },
+                  "testExitStatus": {
+                    "type": ["integer", "string"]
+                  },
+                  "changedFileCount": {
+                    "type": ["integer", "string"]
+                  },
+                  "patchHashClaim": { "type": "string", "maxLength": 200 },
+                  "evidenceRefCount": {
+                    "type": ["integer", "string"]
+                  }
+                }
+              }
+            }
+          },
+          "patch": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["usefulness", "usefulnessEvidence", "preserved"],
+            "properties": {
+              "usefulness": {
+                "type": "string",
+                "enum": ["USEFUL", "NOT_USEFUL", "UNKNOWN_V1"]
+              },
+              "usefulnessEvidence": { "type": "string", "maxLength": 500 },
+              "preserved": { "type": "boolean", "const": true }
+            }
+          },
+          "controller": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "manualIntegrationObserved",
+              "integrationNote",
+              "v1RejectionObserved",
+              "v2Disposition"
+            ],
+            "properties": {
+              "manualIntegrationObserved": {
+                "type": ["boolean", "string"],
+                "enum": [true, "UNKNOWN_V1"]
+              },
+              "integrationNote": { "type": "string", "maxLength": 500 },
+              "v1RejectionObserved": {
+                "type": ["boolean", "string"],
+                "enum": [true, "UNKNOWN_V1"]
+              },
+              "v2Disposition": {
+                "type": "string",
+                "enum": ["UNKNOWN_V1"]
+              }
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "laterLedgerCoverageKnown",
+              "laterEventCount",
+              "incomplete",
+              "laterInvocationRecords"
+            ],
+            "properties": {
+              "laterLedgerCoverageKnown": { "type": "boolean" },
+              "laterEventCount": {
+                "type": ["integer", "string"]
+              },
+              "incomplete": {
+                "type": ["boolean", "string"],
+                "enum": [true, false, "UNKNOWN_V1"]
+              },
+              "laterInvocationRecords": {
+                "type": "string",
+                "enum": ["UNKNOWN_V1"]
+              }
+            }
+          },
+          "usageCost": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tokens", "cost"],
+            "properties": {
+              "tokens": { "type": "string", "enum": ["UNKNOWN_V1"] },
+              "cost": { "type": "string", "enum": ["UNKNOWN_V1"] }
+            }
+          },
+          "semanticReview": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["findings"],
+            "properties": {
+              "findings": { "type": "string", "enum": ["UNKNOWN_V1"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

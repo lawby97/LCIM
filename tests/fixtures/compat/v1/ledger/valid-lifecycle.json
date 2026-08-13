@@ -1,0 +1,47 @@
+[
+  {
+    "seq": 1,
+    "eventKind": "ASSIGNMENT",
+    "workUnitId": "wu-0001",
+    "occurredAt": "2025-01-14T08:00:00Z",
+    "assignment": {
+      "summary": "Implement the V1 compatibility reader and its tests.",
+      "baseShaClaim": "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4"
+    },
+    "prevDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "schemaName": "lcim.v1.ledger-event",
+    "schemaVersion": "1.0.0",
+    "v1Version": "1.0",
+    "digest": "d36a7a0e64cfa6b5bd761e01b15d5d500c34d460421a1c0d226cccf302c816e7"
+  },
+  {
+    "seq": 2,
+    "eventKind": "HANDOFF",
+    "workUnitId": "wu-0001",
+    "occurredAt": "2025-01-14T09:12:00Z",
+    "response": {
+      "text": "{\n  \"workUnitId\": \"wu-0001\",\n  \"workerStatus\": \"WORK_COMPLETE\",\n  \"summary\": \"Implemented the module; unit tests pass.\",\n  \"evidence\": \"tests/compat/v1/version.test.mjs passed\"\n}",
+      "responseRef": null
+    },
+    "prevDigest": "d36a7a0e64cfa6b5bd761e01b15d5d500c34d460421a1c0d226cccf302c816e7",
+    "schemaName": "lcim.v1.ledger-event",
+    "schemaVersion": "1.0.0",
+    "v1Version": "1.0",
+    "digest": "02149cf812f4d41b38afc12607c9c4edf170e8bbec2164fd73e76a9abc8fccc9"
+  },
+  {
+    "seq": 3,
+    "eventKind": "CONTROLLER_ACTION",
+    "workUnitId": "wu-0001",
+    "occurredAt": "2025-01-14T10:30:00Z",
+    "action": {
+      "actionKind": "MANUAL_INTEGRATION",
+      "note": "Controller manually integrated the isolated patch into the target branch."
+    },
+    "prevDigest": "02149cf812f4d41b38afc12607c9c4edf170e8bbec2164fd73e76a9abc8fccc9",
+    "schemaName": "lcim.v1.ledger-event",
+    "schemaVersion": "1.0.0",
+    "v1Version": "1.0",
+    "digest": "4529bc5e03456c7df95aa43e3c3cf2750eb155b651c17f48388d355816d09fff"
+  }
+]

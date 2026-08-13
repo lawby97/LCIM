@@ -1,0 +1,6 @@
+{
+  "workUnitId": "wu-0004",
+  "workerStatus": "DEFINITELY_READY",
+  "summary": "The patch is finished and ready to use.",
+  "patchHash": "0123456789abcdef0123456789abcdef01234567"
+}

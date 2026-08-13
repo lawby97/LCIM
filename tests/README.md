@@ -13,6 +13,10 @@
     (`npm run test:guards`)
   - `tests/helpers/git-fixture.mjs` — tmp git repo / linked-worktree fixtures
   - `tests/helpers/logging-fixture.mjs` — Sprint 01 run-store fixtures
+  - `tests/compat/v1/` — Sprint 09: V1 compatibility version detection,
+    read-only ledger/handoff parsing, projection semantics, unsupported
+    variants, mutation protection (`npm run test:compat:v1`); fixtures in
+    `tests/fixtures/compat/v1/`
   - `tests/fixtures/records/` — valid/invalid shared-record fixtures;
     filenames `valid-<kind>.json` / `invalid-<kind>-<case>.json` map to
     schema names via `lcim.common.<kind>`

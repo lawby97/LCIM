@@ -1,0 +1,3 @@
+This historical response is not parseable at all. It contains only prose
+and an unclosed brace { that never forms a JSON object, so no payload can
+be identified and no worker claim can be established from it.

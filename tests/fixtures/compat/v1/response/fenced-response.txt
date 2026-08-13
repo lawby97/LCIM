@@ -1,0 +1,15 @@
+Here is the final V1 response:
+
+```json
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "Final response wrapped in a JSON code fence.",
+  "evidence": [
+    "tests/compat/v1/version.test.mjs",
+    "tests/compat/v1/ledger.test.mjs"
+  ]
+}
+```
+
+End of response.

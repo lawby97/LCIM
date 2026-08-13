@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/compat/v1-ledger-event.v1.schema.json",
+  "$comment": "Sprint 09 owned: one event of the SUPPORTED V1 assignment-ledger compatibility variant (v1Version '1.0'). The variant is a deterministic, documented reconstruction of the known V1 evidence classes (docs/v1-characterization.md, docs/worker-contract.md section 2) — it is NOT claimed to be the byte format of any private BL-020 archive; artifacts that differ fail clearly as UNSUPPORTED_LEGACY_VARIANT. Events chain: prevDigest is the digest of the previous event (GENESIS = 64 zeros for seq 1); digest = sha256 over the canonical JSON of the event excluding its own digest field. The reader VERIFIES the chain read-only and NEVER rewrites or repairs it; a broken chain fails deterministically. Kind-specific requirements (ASSIGNMENT needs assignment, HANDOFF needs response, CONTROLLER_ACTION needs action) are enforced in src/compat/v1/ledger.mjs because the Sprint-00 engine has no if/then. Public-safe: bounded fields only — no secrets, no raw model output; error paths never embed event bodies.",
+  "title": "LCIM V1 compatibility ledger event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "v1Version",
+    "seq",
+    "eventKind",
+    "workUnitId",
+    "occurredAt",
+    "prevDigest",
+    "digest"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.v1.ledger-event" },
+    "schemaVersion": { "const": "1.0.0" },
+    "v1Version": { "const": "1.0" },
+    "seq": { "type": "integer" },
+    "eventKind": {
+      "enum": ["ASSIGNMENT", "HANDOFF", "CONTROLLER_ACTION"]
+    },
+    "workUnitId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "occurredAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "prevDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "baseShaClaim": { "type": ["string", "null"], "maxLength": 64 }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "responseRef"],
+      "properties": {
+        "text": { "type": ["string", "null"], "maxLength": 100000 },
+        "responseRef": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actionKind"],
+      "properties": {
+        "actionKind": { "enum": ["MANUAL_INTEGRATION", "REJECTION"] },
+        "note": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    }
+  }
+}

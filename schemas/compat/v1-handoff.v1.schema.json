@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/compat/v1-handoff.v1.schema.json",
+  "$comment": "Sprint 09 owned: the historical V1 worker handoff payload of the SUPPORTED v1.0 compatibility variant. Unlike the V2 worker-result schema (which forbids them), this schema ALLOWS the known V1 worker-reportable fields (docs/worker-contract.md section 2) — including workerStatus PATCH_READY, the legacy evidence field (string or array), and objective-evidence fields (changedFiles, lineCount, patchHash, baseSha, headSha, testLogPath, testExitStatus, secretScan, integrationStatus). In V1 these are WORKER CLAIMS, never controller facts; the projection never promotes them. A payload that fails this schema is parseable-but-historically-schema-invalid: it is NEVER declared V2-valid and NEVER treated as 'no patch' or 'failed implementation'. additionalProperties=false keeps the variant vocabulary deterministic: unknown fields make the instance schema-invalid instead of being silently accepted. Public-safe: bounded fields only; raw response text never leaves the read-only parser.",
+  "title": "LCIM V1 compatibility worker handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workUnitId", "workerStatus", "summary"],
+  "properties": {
+    "workUnitId": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "workerStatus": {
+      "enum": ["WORK_COMPLETE", "BLOCKED", "FAILED", "NO_CHANGE", "PATCH_READY"]
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "evidence": {
+      "type": ["string", "array"],
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "acceptanceClaims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "evidenceRefs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+          },
+          "evidence": {
+            "type": ["string", "array"],
+            "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+          }
+        }
+      }
+    },
+    "changedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "lineCount": { "type": "integer" },
+    "patchHash": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "baseSha": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "headSha": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "testLogPath": { "type": ["string", "null"], "maxLength": 500 },
+    "testExitStatus": { "type": ["integer", "null"] },
+    "secretScan": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "integrationStatus": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "remainingIssues": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "reviewRisks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "uncertainty": { "type": "string", "minLength": 1, "maxLength": 1000 }
+  }
+}

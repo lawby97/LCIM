@@ -1,0 +1,21 @@
+{
+  "workUnitId": "lcim_wu_0123456789abcdef0123456789abcdef",
+  "workerStatus": "WORK_COMPLETE",
+  "summary": "V1 handoff with an evidence array and objective-evidence claims.",
+  "evidence": [
+    "tests/compat/v1/ledger.test.mjs",
+    "tests/compat/v1/handoff.test.mjs"
+  ],
+  "acceptanceClaims": [
+    { "claim": "All focused tests pass", "evidence": ["tests/compat/v1/projection.test.mjs"] }
+  ],
+  "changedFiles": ["src/compat/v1/index.mjs"],
+  "lineCount": 120,
+  "baseSha": "a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4",
+  "headSha": "f0e1d2c3b4a5968778695a4b3c2d1e0f12345678",
+  "secretScan": "clean",
+  "integrationStatus": "not integrated",
+  "remainingIssues": [],
+  "reviewRisks": ["Shared vocabulary touched; reviewer should confirm separation."],
+  "uncertainty": "Test results are self-reported."
+}
