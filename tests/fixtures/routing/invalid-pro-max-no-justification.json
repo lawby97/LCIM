@@ -1,0 +1,23 @@
+{
+  "schemaName": "lcim.route-decision",
+  "schemaVersion": "2.0.0",
+  "decisionId": "lcim_route_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "runId": "lcim_run_11111111111111111111111111111111",
+  "workUnitId": "lcim_wu_00000000000000000000000000000000",
+  "decision": "ROUTE_IMPLEMENT_PRO_MAX",
+  "reasonCode": "PRO_MAX_ESCALATION",
+  "state": "AWAITING_SOL_DIAGNOSE",
+  "nextState": "AWAITING_PRO_MAX",
+  "decidedAt": "2025-01-01T00:00:00.000Z",
+  "targetProvider": "pi",
+  "targetModel": "deepseek-pro-max",
+  "targetRole": "IMPLEMENT",
+  "reasoningLevel": "MAX",
+  "budget": {
+    "runCallsConsumed": 3,
+    "runCallsLimit": 50,
+    "unitCallsConsumed": 3,
+    "unitCallsLimit": 10
+  },
+  "evidenceRefs": []
+}

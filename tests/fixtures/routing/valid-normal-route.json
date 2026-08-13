@@ -1,0 +1,23 @@
+{
+  "schemaName": "lcim.route-decision",
+  "schemaVersion": "2.0.0",
+  "decisionId": "lcim_route_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "runId": "lcim_run_11111111111111111111111111111111",
+  "workUnitId": "lcim_wu_00000000000000000000000000000000",
+  "decision": "ROUTE_IMPLEMENT_FLASH",
+  "reasonCode": "NORMAL_BOUNDED_TASK",
+  "state": "ROUTING_READY",
+  "nextState": "AWAITING_IMPLEMENTATION",
+  "decidedAt": "2025-01-01T00:00:00.000Z",
+  "targetProvider": "pi",
+  "targetModel": "deepseek-v4-flash",
+  "targetRole": "IMPLEMENT",
+  "reasoningLevel": "XHIGH",
+  "budget": {
+    "runCallsConsumed": 0,
+    "runCallsLimit": 50,
+    "unitCallsConsumed": 0,
+    "unitCallsLimit": 10
+  },
+  "evidenceRefs": []
+}
