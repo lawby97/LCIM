@@ -1,0 +1,74 @@
+{
+  "schemaName": "lcim.sol-ask",
+  "schemaVersion": "2.0.0",
+  "askId": "lcim_sol_ask_44444444444444444444444444444444",
+  "callType": "SOL_RECHECK",
+  "singleDecisionQuestion": "Is the prior provider_factory finding resolved by the delta evidence?",
+  "whyNeeded": "A repair candidate claims to move provider construction after the authorization check; recheck the prior finding only.",
+  "contractRefs": [
+    {
+      "contractKey": "bl020.provider-construction-before-authz",
+      "semanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "establishedFacts": [
+    {
+      "fact": "the prior finding was issued against the provider_factory criterion",
+      "evidence": "prior final review"
+    }
+  ],
+  "evidence": [
+    {
+      "ref": "ev.delta.counter",
+      "kind": "test_result",
+      "content": "delta run reports provider_factory count 0 before the authorization failure gate",
+      "decisionCritical": true
+    }
+  ],
+  "passCondition": "the delta evidence closes the prior finding",
+  "failCondition": "the prior finding (or a named neighbor) still fails on the delta evidence",
+  "allowedScope": [
+    "the prior finding and its named neighboring invariants only"
+  ],
+  "outOfScope": [
+    "reopening the entire task",
+    "new findings",
+    "code edits"
+  ],
+  "requiredResponseShape": {
+    "verdicts": [
+      "RESOLVED",
+      "NOT_RESOLVED"
+    ],
+    "fields": [
+      "verdict",
+      "decisionSummary",
+      "findings"
+    ]
+  },
+  "repairConstraints": {
+    "maxMustChangeTargets": 1,
+    "mustNotChangeRequired": true,
+    "boundedToRejectedAcceptance": true
+  },
+  "evidenceBudget": {
+    "maxItems": 16,
+    "maxBytes": 8192,
+    "onOverflow": "FAIL_CLOSED"
+  },
+  "recheck": {
+    "priorFindingRef": "lcim_finding_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "priorAskId": "lcim_sol_ask_33333333333333333333333333333333",
+    "priorResponseId": "lcim_sol_resp_55555555555555555555555555555555",
+    "priorFindingDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "deltaEvidenceRefs": [
+      "ev.delta.counter"
+    ],
+    "neighboringInvariants": [
+      "inv.network_zero",
+      "inv.mutation_zero"
+    ],
+    "mustNotReopen": true
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

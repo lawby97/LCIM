@@ -1,0 +1,18 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_22222222222222222222222222222222",
+  "askId": "lcim_sol_ask_11111111111111111111111111111111",
+  "callType": "SOL_CONTRACT_CHECK",
+  "verdict": "SUFFICIENTLY_SPECIFIED",
+  "decisionSummary": "Every authoritative field name and casing in the referenced contract is pinned exactly; no amendment is required.",
+  "evidence": [
+    {
+      "ref": "ev.contract.digest",
+      "kind": "requirement",
+      "content": "semanticDigest binds the exact authority-bearing content",
+      "decisionCritical": true
+    }
+  ],
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

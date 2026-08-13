@@ -1,0 +1,52 @@
+{
+  "schemaName": "lcim.sol-ask",
+  "schemaVersion": "2.0.0",
+  "askId": "lcim_sol_ask_99999999999999999999999999999999",
+  "callType": "SOL_CONTRACT_CHECK",
+  "singleDecisionQuestion": "Is the exact field-name casing of the approval decision contract sufficiently specified?",
+  "whyNeeded": "missing pass/fail must fail closed",
+  "contractRefs": [
+    {
+      "contractKey": "bl020.provider-construction-before-authz",
+      "semanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "establishedFacts": [],
+  "evidence": [],
+  "allowedScope": [
+    "exact semantics of the referenced contract only"
+  ],
+  "outOfScope": [
+    "implementation",
+    "code edits"
+  ],
+  "requiredResponseShape": {
+    "verdicts": [
+      "SUFFICIENTLY_SPECIFIED",
+      "AMENDMENTS_REQUIRED"
+    ],
+    "fields": [
+      "verdict",
+      "decisionSummary",
+      "amendment.exactAmendments"
+    ]
+  },
+  "repairConstraints": {
+    "maxMustChangeTargets": 1,
+    "mustNotChangeRequired": true,
+    "boundedToRejectedAcceptance": true
+  },
+  "evidenceBudget": {
+    "maxItems": 16,
+    "maxBytes": 8192,
+    "onOverflow": "FAIL_CLOSED"
+  },
+  "contractCheck": {
+    "amendmentsOnly": true,
+    "expectedVerdicts": [
+      "SUFFICIENTLY_SPECIFIED",
+      "AMENDMENTS_REQUIRED"
+    ]
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

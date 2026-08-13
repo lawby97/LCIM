@@ -1,0 +1,81 @@
+{
+  "schemaName": "lcim.sol-ask",
+  "schemaVersion": "2.0.0",
+  "askId": "lcim_sol_ask_33333333333333333333333333333333",
+  "callType": "SOL_FINAL_REVIEW",
+  "singleDecisionQuestion": "Do the named high-risk invariants of the provider authorization flow hold on the candidate?",
+  "whyNeeded": "The candidate patch must be reviewed against the locked invariants before review approval can be considered.",
+  "contractRefs": [
+    {
+      "contractKey": "bl020.provider-construction-before-authz",
+      "semanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requirementRefs": [
+        "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725",
+        "se_bc4d91c1ff291611a2ac0b65a5c96afa6bd646280bcc88083812ad78b6a54349"
+      ]
+    }
+  ],
+  "establishedFacts": [
+    {
+      "fact": "authorization failure must terminate the flow with zero side effects",
+      "evidence": "source semantic contract"
+    }
+  ],
+  "evidence": [
+    {
+      "ref": "ev.candidate.tests",
+      "kind": "test_result",
+      "content": "negative side-effect tests ran against the candidate",
+      "decisionCritical": true
+    }
+  ],
+  "passCondition": "every named invariant holds with supporting evidence",
+  "failCondition": "any named invariant fails, or one directly evidenced adjacent critical defect violates a locked requirement",
+  "allowedScope": [
+    "the named high-risk invariant checklist only"
+  ],
+  "outOfScope": [
+    "open-ended bug hunting",
+    "code edits",
+    "cleanup",
+    "style"
+  ],
+  "requiredResponseShape": {
+    "verdicts": [
+      "PASS",
+      "FAIL"
+    ],
+    "fields": [
+      "verdict",
+      "decisionSummary",
+      "findings",
+      "adjacentCriticalDefects"
+    ]
+  },
+  "repairConstraints": {
+    "maxMustChangeTargets": 1,
+    "mustNotChangeRequired": true,
+    "boundedToRejectedAcceptance": true
+  },
+  "evidenceBudget": {
+    "maxItems": 16,
+    "maxBytes": 8192,
+    "onOverflow": "FAIL_CLOSED"
+  },
+  "finalReview": {
+    "invariantChecklist": [
+      {
+        "invariantId": "inv.provider_factory_zero",
+        "invariant": "provider factory construction stays zero before an authorization failure is handled",
+        "lockedRequirementRef": "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725"
+      },
+      {
+        "invariantId": "inv.network_zero",
+        "invariant": "outbound network requests stay zero before an authorization failure is handled",
+        "lockedRequirementRef": "se_bc4d91c1ff291611a2ac0b65a5c96afa6bd646280bcc88083812ad78b6a54349"
+      }
+    ],
+    "maxAdjacentCriticalDefects": 1
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

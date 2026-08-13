@@ -1,0 +1,16 @@
+{
+  "schemaName": "lcim.repair-ticket",
+  "schemaVersion": "2.0.0",
+  "ticketId": "lcim_repair_5d3a9e8f2c4b6a1d0e7f8c9b1a2d3e4f",
+  "sourceAskId": "lcim_sol_ask_22222222222222222222222222222222",
+  "sourceResponseId": "lcim_sol_resp_33333333333333333333333333333333",
+  "callType": "SOL_DIAGNOSE",
+  "repairId": "lcim_repair_5d3a9e8f2c4b6a1d0e7f8c9b1a2d3e4f",
+  "contractKey": "bl020.provider-construction-before-authz",
+  "sourceSemanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "rejectedAcceptanceRefs": [
+    "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725"
+  ],
+  "conversionDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

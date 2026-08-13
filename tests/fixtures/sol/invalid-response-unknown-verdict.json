@@ -1,0 +1,11 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_99999999999999999999999999999999",
+  "askId": "lcim_sol_ask_11111111111111111111111111111111",
+  "callType": "SOL_CONTRACT_CHECK",
+  "verdict": "REVIEWED",
+  "decisionSummary": "a non-vocabulary verdict must fail closed",
+  "evidence": [],
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

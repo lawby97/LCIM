@@ -1,0 +1,69 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_33333333333333333333333333333333",
+  "askId": "lcim_sol_ask_22222222222222222222222222222222",
+  "callType": "SOL_DIAGNOSE",
+  "verdict": "CAUSE_IDENTIFIED",
+  "decisionSummary": "The provider factory is constructed before the persisted authorization check because the flow constructs providers in the request handler preamble.",
+  "evidence": [
+    {
+      "ref": "ev.counter.provider_factory",
+      "kind": "test_result",
+      "content": "instrumented counter reported provider_factory count 1 before the authorization failure gate",
+      "decisionCritical": true
+    },
+    {
+      "ref": "ev.log.authorization",
+      "kind": "log_summary",
+      "content": "authorization failure was handled after provider construction started"
+    }
+  ],
+  "findings": [
+    {
+      "findingId": "lcim_finding_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "severity": "CRITICAL",
+      "invariantRef": "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725",
+      "summary": "provider construction precedes persisted authorization handling",
+      "evidenceRefs": [
+        "ev.counter.provider_factory"
+      ]
+    }
+  ],
+  "failure": {
+    "rootCause": "the request handler constructs the provider factory in its preamble, before the persisted authorization check runs",
+    "evidenceRefs": [
+      "ev.counter.provider_factory",
+      "ev.log.authorization"
+    ],
+    "falsification": "a run where the provider factory is constructed only after the authorization check passes would disprove the root cause",
+    "repair": {
+      "mustChange": [
+        {
+          "target": "provider_factory",
+          "change": "move provider factory construction after the persisted authorization check"
+        }
+      ],
+      "mustNotChange": [
+        {
+          "target": "authorization store",
+          "reason": "authorization store semantics are authoritative and out of scope"
+        }
+      ],
+      "exactTests": [
+        {
+          "name": "provider_factory stays zero before authorization failure",
+          "expectation": "provider factory invocations remain zero before an authorization failure is handled",
+          "acceptanceCriterionRef": "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725"
+        }
+      ],
+      "verification": [
+        {
+          "method": "run negative side-effect test",
+          "expectation": "all expectedCount assertions pass"
+        }
+      ]
+    }
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

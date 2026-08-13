@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/sol-ask.v2.schema.json",
+  "$comment": "Sprint 06 — compiled SOL ask (bounded decision request). Every ask carries a call ID/type, exactly ONE single_decision_question, why-needed, authoritative contract bindings (contractRefs), established facts, ONE closed retained evidence universe (evidence — the single budgeted pool), explicit pass/fail conditions (with optional structured passEvidenceRefs/failEvidenceRefs), allowed scope, out-of-scope, required response shape, repair constraints, and an evidence budget. Every contractRef and requirementRef must resolve to supplied validated Sprint-04 source document(s); no source-free authoritative references. Generic asks, multiple independent primary questions (including semicolon/newline-separated decision clauses), bundled concerns, cross-call-type question domains, and edit requests fail preflight. Per call type exactly one block is present: contractCheck (SOL_CONTRACT_CHECK), diagnose (SOL_DIAGNOSE), finalReview (SOL_FINAL_REVIEW), recheck (SOL_RECHECK). DIAGNOSE prior evidence and RECHECK delta evidence are normalized into the single evidence pool; the blocks carry refs (priorEvidenceRefs / deltaEvidenceRefs) that must resolve to retained non-marker pool items. RECHECK carries frozen provenance for the exact prior finding (priorAskId, priorResponseId, priorFindingRef, priorFindingDigest). Evidence budget onOverflow is FAIL_CLOSED or TRUNCATE_SUMMARIZE (deterministic truncation that never drops decision-critical or referenced evidence and appends a lcim.budget.truncation-marker as the last item; the marker is never evidence). The schema uses only the Sprint-00 engine subset; cross-field rules are enforced in src/sol/contracts/validate.mjs (validateSolAsk).",
+  "title": "LCIM V2 SOL ask (compiled decision request)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "askId",
+    "callType",
+    "singleDecisionQuestion",
+    "whyNeeded",
+    "contractRefs",
+    "establishedFacts",
+    "evidence",
+    "passCondition",
+    "failCondition",
+    "allowedScope",
+    "outOfScope",
+    "requiredResponseShape",
+    "repairConstraints",
+    "evidenceBudget",
+    "compiledAt"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.sol-ask" },
+    "schemaVersion": { "const": "2.0.0" },
+    "askId": { "type": "string", "pattern": "^lcim_sol_ask_[0-9a-f]{32}$" },
+    "callType": {
+      "enum": ["SOL_CONTRACT_CHECK", "SOL_DIAGNOSE", "SOL_FINAL_REVIEW", "SOL_RECHECK"]
+    },
+    "singleDecisionQuestion": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "whyNeeded": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "contractRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["contractKey", "semanticDigest"],
+        "properties": {
+          "contractKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+          "semanticDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "requirementRefs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" }
+          }
+        }
+      }
+    },
+    "establishedFacts": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fact", "evidence"],
+        "properties": {
+          "fact": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "evidence": { "type": "string", "minLength": 1, "maxLength": 300 }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "content"],
+        "properties": {
+          "ref": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "content": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "decisionCritical": { "type": "boolean" },
+          "kind": {
+            "enum": ["observation", "test_result", "log_summary", "prior_finding", "requirement", "other"]
+          }
+        }
+      }
+    },
+    "passCondition": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "failCondition": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "passEvidenceRefs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "failEvidenceRefs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "allowedScope": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "outOfScope": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "requiredResponseShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdicts", "fields"],
+      "properties": {
+        "verdicts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "type": "string", "minLength": 1, "maxLength": 50 }
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      }
+    },
+    "repairConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxMustChangeTargets", "mustNotChangeRequired", "boundedToRejectedAcceptance"],
+      "properties": {
+        "maxMustChangeTargets": { "type": "integer" },
+        "mustNotChangeRequired": { "type": "boolean" },
+        "boundedToRejectedAcceptance": { "const": true },
+        "mustNotChange": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["target", "reason"],
+            "properties": {
+              "target": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+            }
+          }
+        }
+      }
+    },
+    "evidenceBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxItems", "maxBytes", "onOverflow"],
+      "properties": {
+        "maxItems": { "type": "integer" },
+        "maxBytes": { "type": "integer" },
+        "onOverflow": { "enum": ["FAIL_CLOSED", "TRUNCATE_SUMMARIZE"] }
+      }
+    },
+    "contractCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["amendmentsOnly", "expectedVerdicts"],
+      "properties": {
+        "amendmentsOnly": { "const": true },
+        "expectedVerdicts": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "enum": ["SUFFICIENTLY_SPECIFIED", "AMENDMENTS_REQUIRED"] }
+        }
+      }
+    },
+    "diagnose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptanceCriterionRef", "criterionRequirement"],
+      "properties": {
+        "acceptanceCriterionRef": { "type": "string", "pattern": "^se_[0-9a-f]{64}$" },
+        "criterionRequirement": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "priorEvidenceRefs": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        }
+      }
+    },
+    "finalReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invariantChecklist", "maxAdjacentCriticalDefects"],
+      "properties": {
+        "invariantChecklist": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["invariantId", "invariant", "lockedRequirementRef"],
+            "properties": {
+              "invariantId": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9._-]{0,63}$" },
+              "invariant": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "lockedRequirementRef": { "type": "string", "minLength": 1, "maxLength": 200 }
+            }
+          }
+        },
+        "maxAdjacentCriticalDefects": { "const": 1 }
+      }
+    },
+    "recheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "priorFindingRef",
+        "priorAskId",
+        "priorResponseId",
+        "priorFindingDigest",
+        "deltaEvidenceRefs",
+        "neighboringInvariants",
+        "mustNotReopen"
+      ],
+      "properties": {
+        "priorFindingRef": { "type": "string", "pattern": "^lcim_finding_[0-9a-f]{32}$" },
+        "priorAskId": { "type": "string", "pattern": "^lcim_sol_ask_[0-9a-f]{32}$" },
+        "priorResponseId": { "type": "string", "pattern": "^lcim_sol_resp_[0-9a-f]{32}$" },
+        "priorFindingDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "deltaEvidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "neighboringInvariants": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "mustNotReopen": { "const": true }
+      }
+    },
+    "compiledAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    }
+  }
+}

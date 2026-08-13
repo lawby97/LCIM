@@ -1,0 +1,88 @@
+{
+  "schemaName": "lcim.sol-ask",
+  "schemaVersion": "2.0.0",
+  "askId": "lcim_sol_ask_22222222222222222222222222222222",
+  "callType": "SOL_DIAGNOSE",
+  "singleDecisionQuestion": "Why does the provider_factory negative side-effect criterion fail before the authorization failure is handled?",
+  "whyNeeded": "The acceptance run observed a provider factory construction before the persisted authorization check.",
+  "contractRefs": [
+    {
+      "contractKey": "bl020.provider-construction-before-authz",
+      "semanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requirementRefs": [
+        "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725",
+        "se_bc4d91c1ff291611a2ac0b65a5c96afa6bd646280bcc88083812ad78b6a54349"
+      ]
+    }
+  ],
+  "establishedFacts": [
+    {
+      "fact": "authorization is persisted state",
+      "evidence": "authz schema"
+    },
+    {
+      "fact": "provider construction before authorization is a negative side effect",
+      "evidence": "source semantic contract"
+    }
+  ],
+  "evidence": [
+    {
+      "ref": "ev.counter.provider_factory",
+      "kind": "test_result",
+      "content": "instrumented counter reported provider_factory count 1 before the authorization failure gate",
+      "decisionCritical": true
+    },
+    {
+      "ref": "ev.log.authorization",
+      "kind": "log_summary",
+      "content": "authorization failure was handled after provider construction started"
+    },
+    {
+      "ref": "ev.prior.run",
+      "kind": "prior_finding",
+      "content": "prior acceptance run failed the same criterion"
+    }
+  ],
+  "passCondition": "a single root cause is identified with resolving evidence and a falsification statement",
+  "failCondition": "the root cause cannot be identified from the bounded evidence",
+  "allowedScope": [
+    "the provider_factory acceptance criterion only"
+  ],
+  "outOfScope": [
+    "other acceptance criteria",
+    "code edits",
+    "general review"
+  ],
+  "requiredResponseShape": {
+    "verdicts": [
+      "CAUSE_IDENTIFIED",
+      "CAUSE_UNRESOLVED"
+    ],
+    "fields": [
+      "verdict",
+      "decisionSummary",
+      "failure.rootCause",
+      "failure.evidenceRefs",
+      "failure.repair",
+      "failure.falsification"
+    ]
+  },
+  "repairConstraints": {
+    "maxMustChangeTargets": 1,
+    "mustNotChangeRequired": true,
+    "boundedToRejectedAcceptance": true
+  },
+  "evidenceBudget": {
+    "maxItems": 16,
+    "maxBytes": 8192,
+    "onOverflow": "FAIL_CLOSED"
+  },
+  "diagnose": {
+    "acceptanceCriterionRef": "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725",
+    "criterionRequirement": "provider factory invocations remain zero before an authorization failure is handled",
+    "priorEvidenceRefs": [
+      "ev.prior.run"
+    ]
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

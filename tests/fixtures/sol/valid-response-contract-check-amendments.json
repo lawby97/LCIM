@@ -1,0 +1,29 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_11111111111111111111111111111111",
+  "askId": "lcim_sol_ask_11111111111111111111111111111111",
+  "callType": "SOL_CONTRACT_CHECK",
+  "verdict": "AMENDMENTS_REQUIRED",
+  "decisionSummary": "The authoritative field-name casing for the approval record is not pinned exactly; one exact amendment is required.",
+  "evidence": [
+    {
+      "ref": "ev.contract.digest",
+      "kind": "requirement",
+      "content": "semanticDigest binds the exact authority-bearing content",
+      "decisionCritical": true
+    }
+  ],
+  "amendment": {
+    "exactAmendments": [
+      {
+        "contractKey": "bl020.provider-construction-before-authz",
+        "target": "concepts[approval].authoritativeFieldNames",
+        "current": "approval_id / approvalStatus (casing unspecified)",
+        "exactAmendment": "authoritativeFieldNames must be exactly ['approvalId', 'approvalStatus']",
+        "reason": "BL-020 failure class: approval field casing must be byte-exact"
+      }
+    ]
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

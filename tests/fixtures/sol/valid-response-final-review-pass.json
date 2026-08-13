@@ -1,0 +1,18 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_44444444444444444444444444444444",
+  "askId": "lcim_sol_ask_33333333333333333333333333333333",
+  "callType": "SOL_FINAL_REVIEW",
+  "verdict": "PASS",
+  "decisionSummary": "Every named high-risk invariant held on the candidate; no adjacent critical defect is evidenced.",
+  "evidence": [
+    {
+      "ref": "ev.candidate.tests",
+      "kind": "test_result",
+      "content": "negative side-effect tests ran against the candidate",
+      "decisionCritical": true
+    }
+  ],
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

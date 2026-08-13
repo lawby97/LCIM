@@ -1,0 +1,71 @@
+{
+  "schemaName": "lcim.sol-ask",
+  "schemaVersion": "2.0.0",
+  "askId": "lcim_sol_ask_11111111111111111111111111111111",
+  "callType": "SOL_CONTRACT_CHECK",
+  "singleDecisionQuestion": "Is the exact field-name casing of the approval decision contract sufficiently specified?",
+  "whyNeeded": "Sprint 04 discovered approval field casing as a BL-020 failure class; decide whether the contract pins it exactly.",
+  "contractRefs": [
+    {
+      "contractKey": "bl020.provider-construction-before-authz",
+      "semanticDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "requirementRefs": [
+        "se_1c90257f557a47bc039ce62f1d7193f7b5c007b9de0fe30d0ca351624cb9a725"
+      ]
+    }
+  ],
+  "establishedFacts": [
+    {
+      "fact": "the contract is the authoritative worker semantics",
+      "evidence": "compiled semantic contract"
+    }
+  ],
+  "evidence": [
+    {
+      "ref": "ev.contract.digest",
+      "kind": "requirement",
+      "content": "semanticDigest binds the exact authority-bearing content",
+      "decisionCritical": true
+    }
+  ],
+  "passCondition": "exact semantics are complete and unambiguous for every authoritative field name",
+  "failCondition": "any authoritative field name/casing is under-specified or ambiguous",
+  "allowedScope": [
+    "exact semantics of the referenced contract only"
+  ],
+  "outOfScope": [
+    "implementation",
+    "code edits",
+    "general review",
+    "cleanup"
+  ],
+  "requiredResponseShape": {
+    "verdicts": [
+      "SUFFICIENTLY_SPECIFIED",
+      "AMENDMENTS_REQUIRED"
+    ],
+    "fields": [
+      "verdict",
+      "decisionSummary",
+      "amendment.exactAmendments"
+    ]
+  },
+  "repairConstraints": {
+    "maxMustChangeTargets": 1,
+    "mustNotChangeRequired": true,
+    "boundedToRejectedAcceptance": true
+  },
+  "evidenceBudget": {
+    "maxItems": 16,
+    "maxBytes": 8192,
+    "onOverflow": "FAIL_CLOSED"
+  },
+  "contractCheck": {
+    "amendmentsOnly": true,
+    "expectedVerdicts": [
+      "SUFFICIENTLY_SPECIFIED",
+      "AMENDMENTS_REQUIRED"
+    ]
+  },
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

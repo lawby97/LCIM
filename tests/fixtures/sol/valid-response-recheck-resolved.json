@@ -1,0 +1,11 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_66666666666666666666666666666666",
+  "askId": "lcim_sol_ask_44444444444444444444444444444444",
+  "callType": "SOL_RECHECK",
+  "verdict": "RESOLVED",
+  "decisionSummary": "The prior provider_factory finding is closed by the delta evidence: the counter stayed at 0 before the authorization failure gate.",
+  "evidence": [],
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}

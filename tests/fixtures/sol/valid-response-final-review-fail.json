@@ -1,0 +1,38 @@
+{
+  "schemaName": "lcim.sol-response",
+  "schemaVersion": "2.0.0",
+  "responseId": "lcim_sol_resp_55555555555555555555555555555555",
+  "askId": "lcim_sol_ask_33333333333333333333333333333333",
+  "callType": "SOL_FINAL_REVIEW",
+  "verdict": "FAIL",
+  "decisionSummary": "inv.provider_factory_zero failed on the candidate; one adjacent critical defect was directly evidenced.",
+  "evidence": [
+    {
+      "ref": "ev.candidate.tests",
+      "kind": "test_result",
+      "content": "negative side-effect tests ran against the candidate",
+      "decisionCritical": true
+    }
+  ],
+  "findings": [
+    {
+      "findingId": "lcim_finding_cccccccccccccccccccccccccccccccc",
+      "severity": "CRITICAL",
+      "invariantRef": "inv.provider_factory_zero",
+      "summary": "provider factory count was 1 before the authorization failure gate",
+      "evidenceRefs": [
+        "ev.candidate.tests"
+      ]
+    }
+  ],
+  "adjacentCriticalDefects": [
+    {
+      "summary": "credentials are logged on the authorization failure path outside the checklist",
+      "evidenceRefs": [
+        "ev.candidate.tests"
+      ],
+      "lockedRequirementRef": "se_bc4d91c1ff291611a2ac0b65a5c96afa6bd646280bcc88083812ad78b6a54349"
+    }
+  ],
+  "compiledAt": "2025-01-01T00:00:00.000Z"
+}
