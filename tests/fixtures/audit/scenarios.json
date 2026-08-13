@@ -1,0 +1,33 @@
+{
+  "$comment": "Sprint 08 synthetic multi-run audit fixture manifest (public-safe metadata only; the run stores themselves are materialized at test time in tmp git repos by tests/helpers/audit-fixture.mjs — never committed). tests/audit/projections.test.mjs enforces this file matches the builder.",
+  "schemaName": "lcim.audit.fixture-manifest",
+  "schemaVersion": "1.0.0",
+  "scenarios": [
+    { "id": "accepted-first-pass", "title": "accepted first pass", "workUnits": 1, "invocations": 1 },
+    { "id": "repair-acceptance", "title": "repair acceptance after semantic rejection", "workUnits": 1, "invocations": 2 },
+    { "id": "semantic-rejection", "title": "semantic rejection (unresolved)", "workUnits": 1, "invocations": 1 },
+    { "id": "transport-failure-useful-patch", "title": "transport failure with useful patch", "workUnits": 1, "invocations": 1 },
+    { "id": "wrong-base", "title": "wrong base rejection", "workUnits": 1, "invocations": 1 },
+    { "id": "sol-finding-recheck", "title": "SOL review sequence (canonical linkage unavailable)", "workUnits": 2, "invocations": 6 },
+    { "id": "incomplete-ledger", "title": "incomplete ledger", "workUnits": 1, "invocations": 1 },
+    { "id": "orphan-unknown-usage", "title": "orphaned invocation and unknown usage", "workUnits": 2, "invocations": 2 },
+    { "id": "mixed-providers", "title": "mixed providers and Pro/SOL_PRO escalation", "workUnits": 1, "invocations": 4 }
+  ],
+  "totals": {
+    "runs": 9,
+    "workUnits": 11,
+    "invocations": 19,
+    "starts": 19,
+    "completions": 17,
+    "assessments": 17,
+    "reconciliations": 1,
+    "events": 54,
+    "completedRuns": 8,
+    "incompleteLedgerRuns": 1,
+    "rejectedAssessments": 5,
+    "orphanedInvocations": 1,
+    "availableUsage": 16,
+    "unavailableUsage": 3,
+    "totalTokens": 1680
+  }
+}

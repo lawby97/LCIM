@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/review-summary.v2.schema.json",
+  "$comment": "Sprint 08 owned local record family lcim.review-summary, independently versioned at 1.0.0. Normal review exports are a sanitization boundary, not a forensic mirror: arbitrary bounded ledger text (summaries/evidence refs/provider/model/reasoning) is never copied blindly. Unknown canonical facts are represented explicitly as null. The Sprint-01 ledger has no finding identity, recheck, repair-linkage, resolution, or semantic-acceptance fact, so findingDelivered/recheckOf/survivedRepair are intentionally null in this version. No raw transcripts, source, paths, secrets, prompt bodies, or untyped error text belong in this family.",
+  "title": "LCIM V2 sanitized review summary record (Sprint 08 audit projection)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "reviewInvocationId",
+    "runId",
+    "workUnitId",
+    "role",
+    "provider",
+    "model",
+    "reasoningEffort",
+    "status",
+    "outcome",
+    "assessmentResult",
+    "rejectionCode",
+    "summary",
+    "evidenceRefs",
+    "startedAt",
+    "assessedAt",
+    "recheckOf",
+    "survivedRepair",
+    "findingDelivered"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.review-summary" },
+    "schemaVersion": { "const": "1.0.0" },
+    "reviewInvocationId": { "type": "string", "pattern": "^lcim_inv_[0-9a-f]{32}$" },
+    "runId": { "type": "string", "pattern": "^lcim_run_[0-9a-f]{32}$" },
+    "workUnitId": { "type": "string", "pattern": "^lcim_wu_[0-9a-f]{32}$" },
+    "role": { "enum": ["SOL", "SOL_PRO"] },
+    "provider": { "type": "string", "pattern": "^(deepseek|chatgpt|provider_[0-9a-f]{16})$" },
+    "model": { "type": "string", "pattern": "^(deepseek-flash|deepseek-pro-max|gpt-4o|model_[0-9a-f]{16})$" },
+    "reasoningEffort": { "type": "string", "pattern": "^(xhigh|MAX|reasoning_[0-9a-f]{16})$" },
+    "status": { "enum": ["STARTED", "COMPLETED", "ASSESSED", "ORPHANED", "SUPERSEDED"] },
+    "outcome": {
+      "type": ["string", "null"],
+      "enum": ["SUCCESS", "FAILURE", "TIMEOUT", "TRANSPORT_ERROR", "CANCELED", null]
+    },
+    "assessmentResult": {
+      "type": ["string", "null"],
+      "enum": ["ACCEPTED", "REJECTED", null]
+    },
+    "rejectionCode": {
+      "type": ["string", "null"],
+      "enum": [
+        "TRANSPORT_MALFORMED",
+        "SCHEMA_MISMATCH",
+        "SEMANTIC_CONFLATION",
+        "WRONG_BASE",
+        "SCOPE_VIOLATION",
+        "UNRESOLVED_SEMANTICS",
+        "UNSUPPORTED_CLAIM",
+        "INCOMPLETE_LEDGER",
+        "BUDGET_EXHAUSTED",
+        "SECRET_DENIED_PATH",
+        "SOL_ASK_INVALID",
+        null
+      ]
+    },
+    "summary": { "type": "null", "const": null },
+    "evidenceRefs": {
+      "type": ["array", "null"],
+      "maxItems": 50,
+      "items": { "type": "string", "pattern": "^(?:[0-9a-f]{64}|lcim_(?:run|inv|wu|finding|ev|patch)_[0-9a-f]{32})$" }
+    },
+    "startedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "assessedAt": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "recheckOf": { "type": "null", "const": null },
+    "survivedRepair": { "type": "null", "const": null },
+    "findingDelivered": { "type": "null", "const": null }
+  }
+}
