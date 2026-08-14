@@ -32,11 +32,21 @@ const FORBIDDEN = [
   /\.secret$/,
 ];
 
+// Sprint 07's required schema has the word "escalation" in its public,
+// evidence-free contract filename. It is not a runtime escalation record;
+// retain the broad name guard for every other tracked path.
+const PUBLIC_SCHEMA_NAME_EXCEPTIONS = new Set(['schemas/sol-pro-escalation.v2.schema.json']);
+
+function isAllowedPublicSchemaName(file, re) {
+  return PUBLIC_SCHEMA_NAME_EXCEPTIONS.has(file) && re.test('escalation');
+}
+
 test('every tracked file passes the public-safe name rules', () => {
   const tracked = git(ROOT, ['ls-files', '-z']).split('\0').filter(Boolean);
   assert.ok(tracked.length >= 5, 'expected a non-trivial tracked file list');
   for (const file of tracked) {
     for (const re of FORBIDDEN) {
+      if (isAllowedPublicSchemaName(file, re)) continue;
       assert.doesNotMatch(file, re, `tracked file violates public-safe rule: ${file}`);
     }
   }

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/sol-pro-escalation.v2.schema.json",
+  "$comment": "Sprint 07 local-only record for a manual text SOL Pro exchange. Instances are written only below the target repository Git common directory; this public schema contains no runtime evidence. The record holds the local compiler inputs, compiled asks, manually pasted response result, and any existing Sprint-06 repair conversion. It is not an authority or controller-disposition record.",
+  "title": "LCIM V2 local SOL Pro escalation record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "escalationId",
+    "findingId",
+    "createdAt",
+    "context",
+    "sources",
+    "exchanges"
+  ],
+  "properties": {
+    "schemaName": { "const": "lcim.sol-pro-escalation" },
+    "schemaVersion": { "const": "2.0.0" },
+    "escalationId": { "type": "string", "pattern": "^lcim_sol_pro_esc_[0-9a-f]{32}$" },
+    "findingId": { "type": "string", "pattern": "^lcim_finding_[0-9a-f]{32}$" },
+    "createdAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "previousAttempt": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "controllerRejection": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "type": "object" }
+    },
+    "exchanges": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "kind",
+          "responseBindingId",
+          "askInput",
+          "context",
+          "compiledAsk",
+          "canonicalResponse",
+          "repairTicket",
+          "repairContract",
+          "copiedAt",
+          "responseRecordedAt"
+        ],
+        "properties": {
+          "sequence": { "type": "integer" },
+          "kind": { "enum": ["INITIAL", "FOLLOW_UP"] },
+          "responseBindingId": { "type": "string", "pattern": "^lcim_sol_pro_resp_[0-9a-f]{32}$" },
+          "askInput": { "type": "object" },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "task": { "type": "string", "minLength": 1, "maxLength": 500 },
+              "previousAttempt": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "controllerRejection": { "type": "string", "minLength": 1, "maxLength": 1000 }
+            }
+          },
+          "compiledAsk": { "type": ["object", "null"] },
+          "canonicalResponse": { "type": ["object", "null"] },
+          "repairTicket": { "type": ["object", "null"] },
+          "repairContract": { "type": ["object", "null"] },
+          "copiedAt": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+          },
+          "responseRecordedAt": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+          }
+        }
+      }
+    }
+  }
+}
