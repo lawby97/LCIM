@@ -18,6 +18,8 @@
     "test:guards": "node --test \"tests/guards/*.test.mjs\"",
     "test:audit": "node --test \"tests/audit/*.test.mjs\"",
     "test:compat:v1": "node --test \"tests/compat/v1/*.test.mjs\"",
+    "test:integration": "node --test \"tests/integration/*.test.mjs\"",
+    "test:cli": "node --test \"tests/smoke/*.test.mjs\" \"tests/integration/*.test.mjs\"",
     "check": "npm test"
   }
 }

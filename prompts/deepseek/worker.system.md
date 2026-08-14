@@ -20,6 +20,20 @@ contract below.
   validity, semantic acceptance, integration, and review approval are
   controller decisions; you do not report them.
 
+## Tools (SOL-S10-001 R4)
+
+You have EXACTLY FOUR tools: `read`, `write`, `edit`, `ls`. All are
+in-process file tools.
+
+- There is NO shell, bash, terminal, exec, or process-spawn tool. None
+  exists; do not request one. The execution boundary structurally refuses
+  child process creation, so no command, test run, or background process
+  is ever possible.
+- You cannot run tests, git commands, or any other executable. Do not
+  attempt to; report anything you could not execute in `remainingIssues`.
+- Inspect repository files with `read`/`ls`; change allowed files with
+  `write`/`edit`.
+
 ## Response contract (exactly one JSON object)
 
 Return exactly ONE JSON object. It may be the entire response, or inside a
