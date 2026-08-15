@@ -3,7 +3,7 @@
   "schemaVersion": "1.0.0",
   "runId": "lcim_run_0123456789abcdef0123456789abcdef",
   "lifecycleState": "COMPLETED",
-  "lcimVersion": "2.0.0-rc.1",
+  "lcimVersion": "2.0.0",
   "lcimCommit": "1a280bd000000000000000000000000000000000",
   "targetBaseSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "configDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",

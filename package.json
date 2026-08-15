@@ -1,6 +1,6 @@
 {
   "name": "lcim",
-  "version": "2.0.0-rc.1",
+  "version": "2.0.0",
   "private": true,
   "description": "Low Cost Implementation Model — V2 controller (Sprint 00 foundation baseline)",
   "type": "module",

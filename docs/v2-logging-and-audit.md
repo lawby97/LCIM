@@ -3,7 +3,7 @@
 Status: Sprint-08 deterministic audit projections, metrics, REVIEW.md, and
 local review export, completed by Sprint 10 CLI integration and exercised by
 Sprint 11 release gates. Audit consumes canonical run stores; it **never
-mutates** their ledger/events/projections. The `2.0.0-rc.1` architecture is
+mutates** their ledger/events/projections. The `2.0.0` architecture is
 summarized in [`v2-final-architecture.md`](v2-final-architecture.md).
 
 ## 1. Canonical input and normal-export boundary

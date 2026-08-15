@@ -564,13 +564,13 @@ test('SOL-S08-013: empty history is UNKNOWN; one identity exact; differing ident
   await worker(store, generateId('work-unit'), slot(1));
   await store.finalize();
   const oneMetric = (await audit({ cwd: one.root })).result.metrics.lcim;
-  assert.equal(oneMetric.version, '2.0.0-rc.1');
+  assert.equal(oneMetric.version, '2.0.0');
   assert.equal(oneMetric.availability, true);
 
   // Synthetic loaded-run identity aggregation reaches MIXED only for two
   // genuinely differing canonical records; no source files are changed.
   const loaded = [
-    { run: { lcimVersion: '2.0.0-rc.1', lcimCommit: 'a'.repeat(40) }, states: new Map() },
+    { run: { lcimVersion: '2.0.0', lcimCommit: 'a'.repeat(40) }, states: new Map() },
     { run: { lcimVersion: '2.0.1-dev.0', lcimCommit: 'b'.repeat(40) }, states: new Map() },
   ];
   const metrics = computeMetrics({ invocations: [], workUnits: [], reviews: [], usage: [], loadedRuns: loaded });

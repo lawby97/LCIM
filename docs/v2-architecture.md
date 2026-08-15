@@ -1,6 +1,6 @@
 # LCIM V2 Architecture (Sprint 00 baseline)
 
-Status: Historical S00 contract baseline. The implemented release-candidate
+Status: Historical S00 contract baseline. The implemented stable-release
 architecture is documented in [`docs/v2-final-architecture.md`](v2-final-architecture.md);
 this document preserves the locked foundational decisions and original layer
 map for traceability.
@@ -144,7 +144,7 @@ schema's `required` array — enforced by tests).
 
 ## 5. Versioning
 
-- `VERSION` file: `2.0.0-rc.1` (release candidate).
+- `VERSION` file: `2.0.0` (stable release).
 - `package.json` version matches `VERSION`.
 - `src/config/version.mjs`: `readVersion()`, `readGitCommit()` (LCIM repo
   HEAD; null when unavailable), `getVersionInfo()` (version + commit +
@@ -156,7 +156,7 @@ schema's `required` array — enforced by tests).
   report the target repo's HEAD as the LCIM commit. LCIM identity and the
   target repository base identity (`targetBaseSha`, recorded in the run
   record) remain separate facts.
-- `lcim --version` prints `LCIM 2.0.0-rc.1 (git <short-sha>)` from the local
+- `lcim --version` prints `LCIM 2.0.0 (git <short-sha>)` from the local
   skeleton.
 
 ## 6. Test harness

@@ -1,6 +1,6 @@
-# LCIM V2 manual SOL Pro text boundary (Sprint 07, final release-candidate reference)
+# LCIM V2 manual SOL Pro text boundary (Sprint 07, final stable-release reference)
 
-The `2.0.0-rc.1` release gates exercise the text-only, redaction, and hard
+The `2.0.0` release gates exercise the text-only, redaction, and hard
 12,000-character boundary. The consolidated final architecture is
 [`v2-final-architecture.md`](v2-final-architecture.md).
 

@@ -12,10 +12,10 @@ import { SCHEMA_VERSION } from '../../src/shared/schema-registry.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('VERSION file contains the 2.0.0-rc.1 release-candidate value', () => {
+test('VERSION file contains the 2.0.0 stable-release value', () => {
   const version = fs.readFileSync(path.join(ROOT, 'VERSION'), 'utf8').trim();
-  assert.equal(version, '2.0.0-rc.1');
-  assert.match(version, /^2\.0\.0-rc\.1$/);
+  assert.equal(version, '2.0.0');
+  assert.match(version, /^2\.0\.0$/);
 });
 
 test('package.json version matches VERSION file', () => {
@@ -23,13 +23,13 @@ test('package.json version matches VERSION file', () => {
   assert.equal(pkg.version, readVersion());
 });
 
-test('readVersion() returns the release-candidate value', () => {
-  assert.equal(readVersion(), '2.0.0-rc.1');
+test('readVersion() returns the stable-release value', () => {
+  assert.equal(readVersion(), '2.0.0');
 });
 
 test('getVersionInfo() reports version, LCIM git commit, and schema version', () => {
   const info = getVersionInfo();
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
   assert.match(info.gitCommit, /^[0-9a-f]{40}$/);
   assert.equal(info.gitCommitShort, info.gitCommit.slice(0, 7));
   assert.equal(info.schemaVersion, SCHEMA_VERSION);

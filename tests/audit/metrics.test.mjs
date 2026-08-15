@@ -18,7 +18,7 @@ test('required metrics reconcile to the canonical multi-run fixture without infe
   const { result } = await audit({ cwd: repo.root });
   const m = result.metrics;
 
-  assert.equal(m.lcim.version, '2.0.0-rc.1');
+  assert.equal(m.lcim.version, '2.0.0');
   assert.match(m.lcim.commit, /^[0-9a-f]{40}$/);
   assert.equal(m.lcim.availability, true);
   assert.equal(m.lcim.versions.length, 1);
@@ -139,7 +139,7 @@ test('per-run summaries expose only canonical identity/hash/count facts', async 
     assert.ok(ids.has(run.runId));
     assert.match(run.targetBaseSha, /^[0-9a-f]{40}$/);
     assert.match(run.configDigest, /^[0-9a-f]{64}$/);
-    assert.equal(run.lcimVersion, '2.0.0-rc.1');
+    assert.equal(run.lcimVersion, '2.0.0');
     assert.equal(run.projections.invocations, run.ledger.invocations);
   }
 });

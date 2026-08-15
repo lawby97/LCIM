@@ -53,7 +53,7 @@ test('getVersionInfo() reports the LCIM source repo HEAD, not the caller repo HE
 
   // Invoke getVersionInfo while cwd is repository B.
   const info = runVersionInfo(lcim.root, target.root);
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
   assert.equal(info.gitCommit, lcimHead, 'gitCommit must be the LCIM repository A HEAD');
   assert.notEqual(info.gitCommit, targetHead, 'gitCommit must NOT be the target repository B HEAD');
   assert.equal(info.gitCommitShort, lcimHead.slice(0, 7));
@@ -77,7 +77,7 @@ test('bin/lcim.mjs reports the LCIM commit while cwd is another Git repository',
   assert.equal(out.status, 0, out.stderr);
   assert.match(
     out.stdout.trim(),
-    new RegExp(`^LCIM 2\\.0\\.0-rc\\.1 \\(git ${lcimHead.slice(0, 7)}\\)$`),
+    new RegExp(`^LCIM 2\\.0\\.0 \\(git ${lcimHead.slice(0, 7)}\\)$`),
     `CLI must report the LCIM repo commit (A), got: ${out.stdout.trim()}`,
   );
 });
@@ -87,7 +87,7 @@ test('getVersionInfo() returns gitCommit null when LCIM source has no Git metada
   // metadata at the install root -> null fallback, version still works.
   const staged = await stageLcimSource(t, { gitRepo: false });
   const info = runVersionInfo(staged.root, staged.root);
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
   assert.equal(info.gitCommit, null);
   assert.equal(info.gitCommitShort, null);
   assert.equal(info.schemaVersion, '2.0.0');
@@ -113,7 +113,7 @@ test('nested unversioned LCIM install inside a target repo reports gitCommit nul
 
   const { getVersionInfo } = await requireVersionModule(nested);
   const info = getVersionInfo();
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
   assert.equal(info.gitCommit, null, 'enclosing target repo HEAD must NOT become the LCIM commit');
   assert.equal(info.gitCommitShort, null);
   assert.notEqual(info.gitCommit, targetHead, 'gitCommit must never equal the target repository T_SHA');
@@ -139,7 +139,7 @@ test('an LCIM-owned linked Git worktree is still recognized (SOL-S00-R2-001)', a
   assert.equal(info.gitCommit, linkedHead, 'gitCommit must be the linked worktree HEAD');
   assert.equal(info.gitCommitShort, linkedHead.slice(0, 7));
   assert.notEqual(info.gitCommit, mainHead);
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
 });
 
 test('the live LCIM repo reports its own HEAD (no cwd parameter)', async () => {
@@ -148,7 +148,7 @@ test('the live LCIM repo reports its own HEAD (no cwd parameter)', async () => {
   const info = getVersionInfo();
   assert.equal(info.gitCommit, expected);
   assert.equal(info.gitCommitShort, expected.slice(0, 7));
-  assert.equal(info.version, '2.0.0-rc.1');
+  assert.equal(info.version, '2.0.0');
 });
 
 /** Import src/config/version.mjs from a given repo root (fresh module URL). */

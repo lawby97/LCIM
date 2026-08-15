@@ -255,9 +255,9 @@ paths, `archive://bl020-public-ref/...` references are never resolved).
 No secrets, credentials, transcripts, business source, or large archives
 are imported or committed.
 
-## 15. V2 release-candidate migration path
+## 15. V2 stable-release migration path
 
-For `2.0.0-rc.1`, retain V1 files as immutable historical evidence and run the
+For `2.0.0`, retain V1 files as immutable historical evidence and run the
 pure compatibility reader separately. Create native V2 `.lcim/project.json`
 configuration using only non-secret project inputs, then start a fresh native
 V2 run. Do not rewrite V1 files, synthesize a V2 ledger from missing history,

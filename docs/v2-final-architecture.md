@@ -1,6 +1,6 @@
-# LCIM V2 final architecture (2.0.0-rc.1)
+# LCIM V2 final architecture (2.0.0)
 
-Status: Sprint 11 release-candidate evidence complete. This is the native V2
+Status: Sprint 11 stable-release evidence complete. This is the native V2
 architecture assembled by S00-S11; V1 evidence remains compatibility-only.
 
 ## Controller boundary
