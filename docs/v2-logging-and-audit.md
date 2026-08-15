@@ -1,9 +1,10 @@
 # LCIM V2 Logging and Audit (Sprint 08)
 
 Status: Sprint-08 deterministic audit projections, metrics, REVIEW.md, and
-local review export. Sprint 08 consumes the canonical Sprint-01 run stores;
-it **never mutates** their ledger/events/projections. Sprint 10 owns final
-CLI wiring and integration state.
+local review export, completed by Sprint 10 CLI integration and exercised by
+Sprint 11 release gates. Audit consumes canonical run stores; it **never
+mutates** their ledger/events/projections. The `2.0.0-rc.1` architecture is
+summarized in [`v2-final-architecture.md`](v2-final-architecture.md).
 
 ## 1. Canonical input and normal-export boundary
 

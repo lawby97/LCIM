@@ -1,7 +1,9 @@
 # LCIM V2 Deterministic Model Routing and Escalation (Sprint 05)
 
 Status: implemented by Sprint 05 (see `docs/v2-sprints/SPRINT_05_ROUTING.md`),
-with the SOL-S05-001..005 repair integrated.
+with the SOL-S05-001..005 repair integrated. Sprint 11 fault and E2E tests
+exercise the policy in the `2.0.0-rc.1` release candidate; see
+[`v2-final-architecture.md`](v2-final-architecture.md).
 
 Purpose: implement the routing policy **deterministically and cheaply** so
 ordinary work does not spend SOL tokens deciding what model to use, while

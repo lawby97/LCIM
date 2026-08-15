@@ -95,8 +95,14 @@ function validateInputs({ repoDir, runDir, workUnitId, invocationId, expectedBas
  * project-owned scripts. Reading the target repo is permitted (validation
  * is read-capable but write-confined to the copy by the sandbox).
  */
-function resolveValidationArg(item, copyDir, repoDir) {
-  if (typeof item !== 'string' || item.length === 0) return item;
+// These flags carry source-code expressions, not filesystem paths. Treating
+// an inline `node -e` value containing `/` as a path silently rewrites the
+// expression to an absolute copy path (and can turn a valid validation into
+// a syntax error). The controller must preserve literal command arguments.
+const LITERAL_ARGUMENT_FLAGS = new Set(['-e', '--eval', '-p', '--print']);
+
+function resolveValidationArg(item, copyDir, repoDir, { literal = false } = {}) {
+  if (literal || typeof item !== 'string' || item.length === 0) return item;
   if (path.isAbsolute(item)) return item;
   // Path-shaped relative items resolve against the validation copy first
   // (the isolated surface), then against the target repository for
@@ -210,7 +216,9 @@ export async function runValidationsOnCopy({
           results.push({ kind: 'test', outcome: 'FAIL', summary: `validation.commands[${index}] is not a non-empty argv array`, evidenceRef: `validation:test-${index + 1}` });
           continue;
         }
-        const argv = command.map((item) => resolveValidationArg(item, copyDir, repoDir));
+        const argv = command.map((item, itemIndex) => resolveValidationArg(item, copyDir, repoDir, {
+          literal: itemIndex > 0 && LITERAL_ARGUMENT_FLAGS.has(command[itemIndex - 1]),
+        }));
         let result;
         try {
           result = await runConstrainedProcess(boundary, {

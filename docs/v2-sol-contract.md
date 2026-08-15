@@ -1,7 +1,9 @@
 # LCIM V2 SOL Ask Compiler and precise decision contracts (Sprint 06)
 
 Status: implemented by Sprint 06 and repaired per SOL review findings SOL-S06-001..010 (see
-`docs/v2-sprints/SPRINT_06_SOL_ASK_COMPILER.md`).
+`docs/v2-sprints/SPRINT_06_SOL_ASK_COMPILER.md`). Sprint 11 fault/E2E gates
+exercise compiler bypass resistance and bounded repair behavior for
+`2.0.0-rc.1`; see [`v2-final-architecture.md`](v2-final-architecture.md).
 
 Purpose: turn SOL from a broad reviewer into a **bounded decision engine**.
 Every SOL call asks exactly ONE primary decision question and returns a

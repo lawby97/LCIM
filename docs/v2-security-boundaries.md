@@ -1,4 +1,7 @@
-# LCIM V2 Security Boundaries (Sprint 00)
+# LCIM V2 Security Boundaries (Sprint 00, final release-candidate reference)
+
+The `2.0.0-rc.1` release gates exercise these boundaries end to end. The
+consolidated final architecture is [`v2-final-architecture.md`](v2-final-architecture.md).
 
 This document fixes the public-safe boundary for the LCIM repository and the
 external-provider boundaries for later sprints. The GitHub LCIM repository is

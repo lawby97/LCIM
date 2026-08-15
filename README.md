@@ -14,8 +14,10 @@ npm link
 lcim --version
 ```
 
-LCIM source remains versioned in this repository. It does not self-host its own
-V2 development workflow; self-hosting is a later release activity.
+LCIM source remains versioned in this repository. Sprint 11 completed a
+controlled, documentation-only self-host trial; publication remains manual and
+reviewable-only. See [`docs/v2-final-architecture.md`](docs/v2-final-architecture.md)
+for the release-candidate architecture and evidence.
 
 ## Target project setup
 
@@ -75,7 +77,7 @@ validates scope/tests/secret checks, and records controller dispositions.
 Worker status is communication only; it is never patch readiness, semantic
 acceptance, integration, or review approval.
 
-The normal implementation route is DeepSeek V4 Flash through Pi at `xhigh`.
+The normal implementation route is DeepSeek V4 Flash through Pi at `XHIGH`.
 DeepSeek Pro MAX is escalation-only and requires a machine-readable reason.
 Terra and Luna are not normal escalation rungs. Every actual provider call is
 wrapped by the canonical START/COMPLETION/ASSESSMENT invocation lifecycle.

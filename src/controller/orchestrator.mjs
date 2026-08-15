@@ -665,7 +665,10 @@ async function executeWorkerAttempt({
   const patchRecord = evidenceResult?.record ?? null;
   const testsPass = validationResults.filter((item) => item.kind === 'test').every((item) => item.outcome === 'PASS');
   const secretPass = validationResults.filter((item) => item.kind === 'secret-scan').every((item) => item.outcome === 'PASS');
-  const patchValid = safetyError === null && evidenceResult !== null && patchRecord.changedPaths.length > 0 && patchRecord.diffCheck.clean && testsPass && secretPass;
+  // Evidence persistence and scope validation are one fail-closed boundary:
+  // a collector can persist useful evidence before throwing SCOPE_VIOLATION,
+  // but that evidence error must never be mistaken for a valid patch.
+  const patchValid = safetyError === null && evidenceError === null && evidenceResult !== null && patchRecord.changedPaths.length > 0 && patchRecord.diffCheck.clean && testsPass && secretPass;
   let semanticAccepted = patchValid;
   let semanticRejectionCode = null;
   if (patchValid && typeof semanticValidator === 'function') {

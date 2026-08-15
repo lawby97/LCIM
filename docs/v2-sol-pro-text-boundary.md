@@ -1,4 +1,8 @@
-# LCIM V2 manual SOL Pro text boundary (Sprint 07)
+# LCIM V2 manual SOL Pro text boundary (Sprint 07, final release-candidate reference)
+
+The `2.0.0-rc.1` release gates exercise the text-only, redaction, and hard
+12,000-character boundary. The consolidated final architecture is
+[`v2-final-architecture.md`](v2-final-architecture.md).
 
 Sprint 07 implements a deliberately narrow manual handoff for bounded SOL
 judgment. It is not a provider client, a browser driver, a file-transfer

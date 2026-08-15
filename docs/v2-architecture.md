@@ -1,10 +1,9 @@
 # LCIM V2 Architecture (Sprint 00 baseline)
 
-Status: Sprint 00 foundation; **Sprint 01 implemented** (canonical invocation
-ledger, run lifecycle, local evidence storage — see
-`docs/v2-logging-contract.md`). Substantive subsystems (worker parsing,
-routing, SOL compilation, audit) are NOT implemented yet — only the
-interfaces they need.
+Status: Historical S00 contract baseline. The implemented release-candidate
+architecture is documented in [`docs/v2-final-architecture.md`](v2-final-architecture.md);
+this document preserves the locked foundational decisions and original layer
+map for traceability.
 
 ## 1. Design principles (locked)
 
@@ -22,22 +21,22 @@ interfaces they need.
 
 ## 2. Layer map
 
-| Layer | Owner sprint | Sprint-00 status |
+| Layer | Owner sprint | Status |
 |---|---|---|
 | Shared IDs/enums/errors/interfaces + schema registry | 00 | Implemented (`src/shared/**`, `schemas/common/**`) |
 | Config baseline: version + runtime-path helpers | 00 | Implemented (`src/config/**`) |
 | CLI skeleton (`--version`/`--help`) | 00 (full CLI: 10) | Implemented (`bin/lcim.mjs`) |
 | Canonical invocation ledger / run store | 01 | Implemented (`src/logging/**`, `src/runtime/run-store.mjs`; contract: `docs/v2-logging-contract.md`) |
-| Worker contract, safe parsing, transport separation | 02 | Not implemented; worker vocabulary fixed |
-| Git worktree/base/scope controller | 03 | Not implemented; runtime-path helper fixed |
-| Semantic contract compiler / risk facts | 04 | Not implemented; rejection taxonomy fixed |
-| Deterministic routing / escalation | 05 | Not implemented; no model required for route decisions |
-| SOL ask compiler / decision contracts | 06 | Not implemented; review-finding record fixed |
-| Text-only ChatGPT SOL Pro transport | 07 | Not implemented |
-| Audit projections, REVIEW.md, review-export | 08 | Not implemented; finding/rejection records fixed |
-| V1 compatibility reader / migration | 09 | Not implemented |
-| CLI/project adapter integration | 10 | Not implemented |
-| Fault injection, E2E, self-hosting trial | 11 | Not implemented |
+| Worker contract, safe parsing, transport separation | 02 | Implemented |
+| Git worktree/base/scope controller | 03 | Implemented |
+| Semantic contract compiler / risk facts | 04 | Implemented |
+| Deterministic routing / escalation | 05 | Implemented |
+| SOL ask compiler / decision contracts | 06 | Implemented |
+| Text-only ChatGPT SOL Pro transport | 07 | Implemented |
+| Audit projections, REVIEW.md, review-export | 08 | Implemented |
+| V1 compatibility reader / migration | 09 | Implemented |
+| CLI/project adapter integration | 10 | Implemented |
+| Fault injection, E2E, self-hosting trial | 11 | Implemented (release-gated) |
 
 ## 3. Shared contracts (Sprint 00)
 
@@ -145,7 +144,7 @@ schema's `required` array — enforced by tests).
 
 ## 5. Versioning
 
-- `VERSION` file: `2.0.0-dev.0` (pre-release).
+- `VERSION` file: `2.0.0-rc.1` (release candidate).
 - `package.json` version matches `VERSION`.
 - `src/config/version.mjs`: `readVersion()`, `readGitCommit()` (LCIM repo
   HEAD; null when unavailable), `getVersionInfo()` (version + commit +
@@ -157,7 +156,7 @@ schema's `required` array — enforced by tests).
   report the target repo's HEAD as the LCIM commit. LCIM identity and the
   target repository base identity (`targetBaseSha`, recorded in the run
   record) remain separate facts.
-- `lcim --version` prints `LCIM 2.0.0-dev.0 (git <short-sha>)` from the local
+- `lcim --version` prints `LCIM 2.0.0-rc.1 (git <short-sha>)` from the local
   skeleton.
 
 ## 6. Test harness
