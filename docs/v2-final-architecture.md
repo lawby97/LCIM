@@ -1,7 +1,10 @@
-# LCIM V2 final architecture (2.0.0)
+# LCIM V2 final architecture (2.0.0 / 2.0.1)
 
-Status: Sprint 11 stable-release evidence complete. This is the native V2
-architecture assembled by S00-S11; V1 evidence remains compatibility-only.
+Status: Sprint 11 stable-release evidence complete (`2.0.0`). `2.0.1` adds
+the automatic GPT-5.6 Sol codex SOL channel (Pi native `openai-codex`
+OAuth) — see [`v2-codex-sol-oauth.md`](v2-codex-sol-oauth.md). This is the
+native V2 architecture assembled by S00-S11; V1 evidence remains
+compatibility-only.
 
 ## Controller boundary
 
@@ -88,6 +91,22 @@ Validation cannot modify the artifact or candidate. Inline expressions such as
 `node -e` remain literal arguments; file paths resolve only inside the copy.
 
 ## SOL and Pro boundary
+
+V2.0.1 (fifth-review repair): automatic SOL routing is CODEX-ONLY —
+GPT-5.6 Sol `gpt-5.6-sol` through Pi's native openai-codex OAuth, exactly
+openai-codex / gpt-5.6-sol / XHIGH for every SOL role. The codex channel
+runs Pi as a **trusted controller-side provider client** (canonical
+absolute entrypoint, controller-owned cwd, strict env allowlist,
+run-scoped isolated `PI_CODING_AGENT_DIR` (per-invocation cwd/home/tmp)
+with only the openai-codex OAuth entry, zero-tool model surface,
+controller-pinned system prompt); it is never placed inside the DeepSeek
+worker execution boundary. The classic `sol-xhigh` channel has NO
+production authority in 2.1 (`SOL_CHANNEL_CLASSIC_NO_AUTHORITY` fails
+closed at routing; the execution branch is structurally refused) and
+survives only as immutable 2.0.0 historical semantics for old-record
+validation. Route-decision records use the immutable schema version
+`2.1.0` (SOL decisions must be exactly `gpt-5.6-sol` / provider `pi` /
+XHIGH). See [`v2-codex-sol-oauth.md`](v2-codex-sol-oauth.md).
 
 Automatic SOL calls use compiled asks with one primary question, explicit
 pass/fail conditions, bounded evidence, source/contract digests, out-of-scope

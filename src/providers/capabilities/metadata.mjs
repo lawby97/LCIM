@@ -21,6 +21,13 @@
  *   roles: bounded contract check, bounded diagnose, final high-risk
  *   review, recheck. The ask compiler itself is Sprint 06; this module
  *   only pins the capability/role contract routing needs.
+ * - V2.0.1: `gpt-5.6-sol` (GPT-5.6 Sol, provider channel `pi`, tier `sol`)
+ *   carries the SAME four SOL roles and runs through Pi's native
+ *   `openai-codex` provider using Pi's existing OAuth store — an
+ *   explicitly configured alternative automatic SOL channel to the
+ *   classic `sol-xhigh` (provider channel `sol`, OPENAI_API_KEY broker
+ *   transport). It is never an implementation model and never a default
+ *   ladder model.
  */
 
 export const REASONING_LEVELS = Object.freeze(['XHIGH', 'MAX']);
@@ -80,6 +87,21 @@ export const MODEL_SPECS = Object.freeze({
     defaultLadder: false,
     disabledByDefault: false,
   }),
+  // V2.0.1: GPT-5.6 Sol — the automatic SOL decision engine through Pi's
+  // native `openai-codex` provider (Pi-managed OAuth in ~/.pi/agent, never
+  // an LCIM-held credential). Channel 'pi' (the Pi CLI transport), tier
+  // 'sol', the same four SOL roles, XHIGH reasoning floor only.
+  'gpt-5.6-sol': Object.freeze({
+    provider: 'pi',
+    family: 'gpt',
+    tier: 'sol',
+    roles: SOL_ROLES,
+    supportedReasoning: Object.freeze(['XHIGH']),
+    defaultReasoning: 'XHIGH',
+    escalationOnly: false,
+    defaultLadder: false,
+    disabledByDefault: false,
+  }),
   terra: Object.freeze({
     provider: 'pi',
     family: 'terra',
@@ -113,6 +135,15 @@ export const DEFAULT_IMPLEMENTATION_LADDER = Object.freeze(['deepseek-v4-flash']
 
 /** Models disabled from the default ladder; optional fallback only when configured. */
 export const DISABLED_DEFAULT_MODELS = Object.freeze(['terra', 'luna']);
+
+/**
+ * V2.0.1 canonical model key for the GPT-5.6 Sol automatic SOL channel
+ * (Pi native `openai-codex` provider, Pi-managed OAuth).
+ */
+export const CODEX_SOL_MODEL = 'gpt-5.6-sol';
+
+/** The classic automatic SOL channel model key (provider channel 'sol'). */
+export const CLASSIC_SOL_MODEL = 'sol-xhigh';
 
 /** @param {string} modelKey */
 export function isDefaultLadderModel(modelKey) {

@@ -7,6 +7,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import { setupProject } from '../../src/project/config.mjs';
 import { runController } from '../../src/controller/orchestrator.mjs';
+import { codexSeam } from './codex-seam.mjs';
 import { readControllerState } from '../../src/controller/state.mjs';
 import { createWorkerExecutionBoundary, authorizeWorkerExecutionBoundary, runConstrainedProcess } from '../../src/controller/execution-boundary.mjs';
 import { createIsolatedWorktree } from '../../src/git/worktree.mjs';
@@ -15,6 +16,7 @@ import { generateId } from '../../src/shared/ids.mjs';
 import { resolveGitCommonDir } from '../../src/config/runtime-path.mjs';
 import { RunStore } from '../../src/runtime/run-store.mjs';
 import { recoverRun } from '../../src/controller/orchestrator.mjs';
+import { mintSolTestSeam } from '../../src/controller/test-seams.mjs';
 
 function git(cwd, args, { allowFailure = false } = {}) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -184,49 +186,31 @@ test('malformed worker transport preserves useful controller patch evidence with
 
 test('semantic rejection routes through the compiled SOL diagnosis and a bounded repair', async (t) => {
   const fixture = makeTarget(t, { mode: 'normal' });
-  const solScript = `
-let prompt = '';
-process.stdin.on('data', (chunk) => { prompt += chunk; });
-process.stdin.on('end', () => {
-  const askId = prompt.match(/Ask id: (lcim_sol_ask_[0-9a-f]+)/)[1];
-  const criterion = prompt.match(/Criterion \\(sideEffectId\\): (se_[0-9a-f]{64})/)[1];
-  const requirement = prompt.match(/Criterion requirement \\(authoritative, verbatim\\): (.*)/)[1];
-  const evidence = prompt.match(/Prior evidence \\(refs into the single bounded evidence universe\\): (.*)/)[1].split(',')[0].trim();
-  process.stdout.write(JSON.stringify({
-    askId,
-    callType: 'SOL_DIAGNOSE',
-    verdict: 'CAUSE_IDENTIFIED',
-    decisionSummary: 'one bounded cause identified',
-    evidence: [],
-    failure: {
-      rootCause: 'the bounded controller gate was not satisfied',
-      evidenceRefs: [evidence],
-      repair: {
-        mustChange: [{ target: 'mutation', change: 'restore the bounded controller gate' }],
-        mustNotChange: [{ target: 'contract', reason: 'preserve locked semantics' }],
-        exactTests: [{ name: 'criterion test', expectation: requirement, acceptanceCriterionRef: criterion }],
-        verification: [{ method: 'controller check', expectation: 'the criterion is satisfied' }]
-      },
-      falsification: 'a passing controller gate would disprove this cause'
-    }
-  }));
-});
-`;
-  fs.writeFileSync(path.join(fixture.root, 'sol.cjs'), solScript);
   const configPath = path.join(fixture.root, '.lcim', 'project.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  config.sol.command = ['node', 'sol.cjs'];
-  config.endpoints['sol-xhigh'] = { baseUrl: 'local://fixture-sol', kind: 'local-command' };
+  // Fifth-review rule: the only automatic SOL channel is the strict Codex
+  // transport gate (gpt-5.6-sol on provider pi); the seam fixture Pi runs
+  // through the capability-gated controller-internal test seam and is
+  // structurally non-authoritative.
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  config.permissions.externalProvider = true;
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const seam = codexSeam(t);
   let semanticCalls = 0;
   const result = await runController({
     cwd: fixture.root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.disposition, 'SEMANTICALLY_ACCEPTED');
   assert.equal(semanticCalls, 2);
-  assert.ok(result.routeDecisions.some((decision) => decision.decision === 'ROUTE_SOL_DIAGNOSE'));
+  const solDecision = result.routeDecisions.find((decision) => decision.decision === 'ROUTE_SOL_DIAGNOSE');
+  assert.ok(solDecision);
+  assert.equal(solDecision.targetModel, 'gpt-5.6-sol');
+  assert.equal(solDecision.targetProvider, 'pi');
+  assert.equal(solDecision.reasoningLevel, 'XHIGH');
   assert.equal(result.finalSummary.invocations, 3);
   assert.equal(result.finalSummary.starts, 3);
   assert.equal(result.finalSummary.completions, 3);

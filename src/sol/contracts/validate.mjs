@@ -123,7 +123,7 @@ import {
   solTypeBlockFor,
   MAX_ADJACENT_CRITICAL_DEFECTS,
 } from './call-types.mjs';
-import { isValidSolAskId, isValidSolResponseId } from './ids.mjs';
+import { adjacentDefectFindingId, isValidSolAskId, isValidSolResponseId } from './ids.mjs';
 import {
   evidenceByteLength,
   isValidTruncationMarker,
@@ -705,9 +705,19 @@ function applyPriorProvenanceRules(doc, prior, errors) {
     push(errors, 'recheck.priorAskId', 'PRIOR_CHAIN_INVALID', `frozen provenance (${doc.recheck?.priorAskId}, ${doc.recheck?.priorResponseId}) does not bind to the supplied prior ask/response (${priorAsk.askId}, ${priorResponse.responseId})`);
   }
   const findings = Array.isArray(priorResponse.findings) ? priorResponse.findings : [];
-  const finding = findings.find((f) => f?.findingId === doc.recheck?.priorFindingRef);
+  let finding = findings.find((f) => f?.findingId === doc.recheck?.priorFindingRef);
   if (finding === undefined) {
-    push(errors, 'recheck.priorFindingRef', 'PRIOR_FINDING_UNKNOWN', `prior finding '${doc.recheck?.priorFindingRef}' does not resolve to an actual finding of the bound prior response; invented or swapped finding refs are rejected`);
+    // Fifth-review rule: an accepted adjacentCriticalDefect is an
+    // authoritative defect record with a deterministic controller
+    // identity; the exact RECHECK of that defect resolves through the
+    // same deterministic identity.
+    const adjacent = Array.isArray(priorResponse.adjacentCriticalDefects)
+      ? priorResponse.adjacentCriticalDefects.find((d) => adjacentDefectFindingId(d) === doc.recheck?.priorFindingRef)
+      : undefined;
+    if (adjacent !== undefined) finding = adjacent;
+  }
+  if (finding === undefined) {
+    push(errors, 'recheck.priorFindingRef', 'PRIOR_FINDING_UNKNOWN', `prior finding '${doc.recheck?.priorFindingRef}' does not resolve to an actual finding (or accepted adjacent critical defect) of the bound prior response; invented or swapped finding refs are rejected`);
     return;
   }
   const derivedDigest = sha256Hex(JSON.stringify(canonicalizeJson(finding)));

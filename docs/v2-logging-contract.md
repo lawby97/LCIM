@@ -27,13 +27,16 @@ store.
     events.v2.jsonl           append-only, integrity-chained ledger
     invocations/<invId>.json  compact invocation projections (per invocation)
     raw/raw.jsonl.gz          optional compressed raw sink (best-effort)
-    .lcim.lock/               transient advisory lock (never persisted data)
+    .lcim.lock/owners.jsonl   private append-only owner queue for the
+                              cross-process run mutex (ACQUIRE/RELEASE only)
 ```
 
 - `<runId>` is `lcim_run_<32 hex>` (shared ID format, `src/shared/ids.mjs`).
 - The ledger file name `events.v2.jsonl` is fixed by this sprint.
 - Files are written atomically (temp + fsync + rename) except the ledger
-  append, which is a single `write + fsync` on an append-only fd.
+  append and private lock-owner queue, which use one append-only
+  `write + fsync` per record. The lock queue contains no model output or
+  credentials.
 
 ## 2. Run record (`lcim.run`, file `run.json`)
 

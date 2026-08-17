@@ -51,6 +51,7 @@ import { fileURLToPath } from 'node:url';
 
 import { setupProject } from '../../src/project/config.mjs';
 import { runController } from '../../src/controller/orchestrator.mjs';
+import { codexSeam } from './codex-seam.mjs';
 import {
   authorizeWorkerExecutionBoundary,
   runConstrainedProcess,
@@ -61,6 +62,7 @@ import {
 } from '../../src/controller/provider-broker.mjs';
 import { resolveGitCommonDir, resolveRunDir } from '../../src/config/runtime-path.mjs';
 import { resolvePatchEvidenceDir, loadPatchEvidence } from '../../src/evidence/patch/store.mjs';
+import { mintSolTestSeam } from '../../src/controller/test-seams.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -397,10 +399,10 @@ process.stdin.on('end', () => {
 });
 `;
   fs.writeFileSync(path.join(root, 'sol.cjs'), sol);
-  const configPath = path.join(root, '.lcim', 'project.json');
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  config.sol.command = ['node', 'sol.cjs'];
-  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  // SOL-S11-002: local-command SOL authority is removed from production
+  // routing; the fixture command stays repository-local and is invoked
+  // ONLY through the capability-gated controller-internal test seam.
+  return ['node', 'sol.cjs'];
 }
 
 function readRawOutputs(repoDir, runId) {
@@ -424,12 +426,18 @@ function watcherPidsFromRun(repoDir, runId) {
 test('SOL-S10-001/R4-3: exact marker-free inter-scan attack — the detached process is NEVER created; the polling interval is irrelevant', async (t) => {
   const root = makeTarget(t);
   installMarkerAttackWorker(t, root);
-  installLocalSolCommand(t, root);
+  const configPath = path.join(root, '.lcim', 'project.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
   // 5. The run completes: worker direct process exited; controller safely
@@ -465,16 +473,21 @@ test('SOL-S10-001/R4-3: exact marker-free inter-scan attack — the detached pro
   const solStarts = events.filter((event) => event.kind === 'START' && event.role === 'SOL');
   assert.equal(solStarts.length, 1, 'exactly one SOL invocation');
 
-  // Every invocation's process-lifetime evidence: structural primary proof.
+  // Every invocation's process-lifetime evidence: the two WORKER
+  // invocations record the structural primary proof; the codex SOL
+  // transport supervisor is PRIMARY (controller-side trusted process).
   assert.equal(result.processLifetimeEvidencePaths.length, 3);
-  for (const file of result.processLifetimeEvidencePaths) {
-    const pl = JSON.parse(fs.readFileSync(file, 'utf8'));
-    assert.equal(pl.quiescenceVerified, true);
-    assert.equal(pl.childCreationStructurallyDenied, true);
-    assert.equal(pl.primaryProof, 'CHILD_CREATION_STRUCTURALLY_DENIED');
-    assert.equal(pl.supervisorRole, 'DEFENSE_IN_DEPTH');
-  }
-  // Boundary evidence: structural no-descendant with the empirical probe.
+  const pls = result.processLifetimeEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+  assert.ok(pls.every((pl) => pl.quiescenceVerified === true));
+  const workerPl = pls.filter((pl) => pl.primaryProof === 'CHILD_CREATION_STRUCTURALLY_DENIED');
+  const codexPl = pls.filter((pl) => pl.primaryProof === 'PROCESS_TREE_QUIESCENCE');
+  assert.equal(workerPl.length, 2);
+  assert.ok(workerPl.every((pl) => pl.supervisorRole === 'DEFENSE_IN_DEPTH'));
+  assert.equal(codexPl.length, 1);
+  assert.equal(codexPl[0].supervisorRole, 'PRIMARY');
+  // Boundary evidence: structural no-descendant with the empirical probe
+  // (only the worker invocations create execution boundaries).
+  assert.equal(result.boundaryEvidencePaths.length, 2);
   for (const file of result.boundaryEvidencePaths) {
     const boundary = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.equal(boundary.processCreation, 'DENIED');
@@ -588,9 +601,8 @@ test('SOL-S10-001/R4-5: production Pi DeepSeek path under the no-fork boundary �
   assert.equal(pl.quiescenceVerified, true);
 });
 
-test('SOL-S10-001/R4-6: production Pi SOL path under the no-fork boundary — DeepSeek worker -> legitimate SOL via fresh broker and HTTPS fake upstream', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
+test('SOL-S10-001/R4-6: production codex SOL path under the controller-side transport — DeepSeek worker -> SOL via the strict gate', async (t) => {
   withCredentialEnv(t, 'DEEPSEEK_API_KEY', 's10-r4-deepseek-key-0123456789abcdef');
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-r4-sol-key-0123456789abcdef');
   const previousCa = process.env.LCIM_BROKER_CA_FILE;
   process.env.LCIM_BROKER_CA_FILE = tlsFixture().caPath;
   t.after(() => {
@@ -598,40 +610,55 @@ test('SOL-S10-001/R4-6: production Pi SOL path under the no-fork boundary — De
     else process.env.LCIM_BROKER_CA_FILE = previousCa;
   });
   const deepseek = await fakeUpstream(t, { name: 'r4-deepseek-https', agent: deepseekAgentToolSurface(), tls: true });
-  const sol = await fakeUpstream(t, { name: 'r4-sol-https', agent: solAgent, tls: true });
   const root = makeTarget(t);
   const configPath = path.join(root, '.lcim', 'project.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   config.endpoints['deepseek-v4-flash'] = { baseUrl: deepseek.baseUrl, kind: 'external' };
-  config.endpoints['sol-xhigh'] = { baseUrl: sol.baseUrl, kind: 'external' };
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
   assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.equal(result.finalSummary.invocations, 3, 'deepseek worker + SOL + deepseek repair');
+  assert.equal(result.finalSummary.invocations, 3, 'deepseek worker + codex SOL + deepseek repair');
 
-  // SOL upstream: exactly the legitimate compiled ask, zero attacker calls.
-  assert.equal(sol.requests.length, 1);
-  assert.equal(sol.requests[0].model, 'sol-xhigh');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
-  assert.equal(sol.requests[0].prompt.includes('GENERIC SOL'), false);
-  assert.equal(sol.requests[0].auth, 'Bearer s10-r4-sol-key-0123456789abcdef', 'TLS/credential transport preserved');
+  // The SOL role ran through the controller-side codex transport with the
+  // compiled ask; the transport gate passed and evidence is consistent with
+  // the final acceptance decision. Sixth-review rule: the immutable
+  // transport proof is persisted before parse; the semantic-acceptance
+  // record is persisted after compilation.
+  assert.equal(result.solTransportEvidencePaths.length, 2);
+  const solEvidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths[0], 'utf8'));
+  assert.equal(solEvidence.phase, 'TRANSPORT_PROOF');
+  assert.equal(solEvidence.transportProofs.gatePassed, true);
+  assert.equal(solEvidence.credentialLeak, false);
+  const semanticEvidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths.find((file) => file.endsWith('.semantic.json')), 'utf8'));
+  assert.equal(semanticEvidence.finalAcceptance, true);
+  assert.equal(semanticEvidence.semanticAccepted, true);
+  const runDir = resolveRunDir(root, result.runId);
+  const askArtifact = JSON.parse(fs.readFileSync(path.join(runDir, 'controller', 'sol', 'asks', fs.readdirSync(path.join(runDir, 'controller', 'sol', 'asks'))[0]), 'utf8'));
+  assert.match(askArtifact.askId, /^lcim_sol_ask_/);
+  assert.equal(JSON.stringify(askArtifact).includes('GENERIC SOL'), false);
 
-  // Every invocation: fresh broker, structural boundary, verified quiescence.
-  assert.equal(result.brokerEvidencePaths.length, 3);
+  // DeepSeek stays BROKER_ONLY: two fresh broker endpoints (worker, repair),
+  // each with a structural boundary; the codex SOL role creates no broker.
+  assert.equal(result.brokerEvidencePaths.length, 2);
   const ports = result.brokerEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')).port);
-  assert.equal(new Set(ports).size, 3, 'fresh broker endpoint per invocation');
+  assert.equal(new Set(ports).size, 2, 'fresh broker endpoint per DeepSeek invocation');
   const boundaries = result.boundaryEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+  assert.equal(boundaries.length, 2, 'boundaries exist only for the DeepSeek invocations');
   assert.ok(boundaries.every((b) => b.processCreation === 'DENIED' && b.childCreation.mode === 'STRUCTURALLY_DENIED' && b.childCreation.blocked === true));
-  for (const file of result.processLifetimeEvidencePaths) {
-    const pl = JSON.parse(fs.readFileSync(file, 'utf8'));
-    assert.equal(pl.primaryProof, 'CHILD_CREATION_STRUCTURALLY_DENIED');
-    assert.equal(pl.quiescenceVerified, true);
-  }
+  const pls = result.processLifetimeEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+  assert.equal(pls.length, 3);
+  assert.ok(pls.every((pl) => pl.quiescenceVerified === true));
+  assert.equal(pls.filter((pl) => pl.primaryProof === 'CHILD_CREATION_STRUCTURALLY_DENIED').length, 2);
+  assert.equal(pls.filter((pl) => pl.primaryProof === 'PROCESS_TREE_QUIESCENCE').length, 1);
 });
 
 // ---------------------------------------------------------------------------

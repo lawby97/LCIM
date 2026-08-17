@@ -122,7 +122,9 @@ test('invalid (state, event) pairs throw RouteStateError — never silently defa
     ['AWAITING_REPAIR', 'FAILURE_FIRST_CREDIBLE'], // repair budget: exactly one bounded repair
     ['AWAITING_SOL_CONTRACT_CHECK', 'TASK_READY'],
     ['AWAITING_SOL_DIAGNOSE', 'RESULT_ACCEPTED'],
-    ['AWAITING_SOL_RECHECK', 'FAILURE_FIRST_CREDIBLE'],
+    // (AWAITING_SOL_RECHECK + FAILURE_FIRST_CREDIBLE is DEFINED: after a
+    // recheck passes, the next open authoritative defect that was never
+    // repaired yet routes to its one bounded repair.)
     ['AWAITING_SOL_FINAL_REVIEW', 'SEMANTIC_REJECTION'],
     ['AWAITING_PRO_MAX', 'FAILURE_FIRST_CREDIBLE'], // no Flash repair below Pro MAX
   ];

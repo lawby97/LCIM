@@ -48,3 +48,16 @@ export class BudgetExhaustedError extends RoutingError {
     this.code = 'BUDGET_EXHAUSTED';
   }
 }
+
+/**
+ * V2.0.1: a configured sol.command attempted to substitute the production
+ * openai-codex / gpt-5.6-sol SOL channel (impersonation). Fail closed with
+ * the distinct SOL_COMMAND_MASQUERADE identity — no route record is
+ * produced and no provider process is spawned.
+ */
+export class SolCommandMasqueradeError extends RoutingError {
+  constructor(message, details = null) {
+    super(message, details);
+    this.code = 'SOL_COMMAND_MASQUERADE';
+  }
+}

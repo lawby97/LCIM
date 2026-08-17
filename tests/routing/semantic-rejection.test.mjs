@@ -22,7 +22,8 @@ for (const rejectionCode of ['SEMANTIC_CONFLATION', 'UNRESOLVED_SEMANTICS', 'UNS
     );
     assert.equal(decision.decision, 'ROUTE_SOL_DIAGNOSE');
     assert.equal(decision.reasonCode, 'SEMANTIC_REJECTION_ESCALATION');
-    assert.equal(decision.targetModel, 'sol-xhigh');
+    assert.equal(decision.targetModel, 'gpt-5.6-sol');
+    assert.equal(decision.targetProvider, 'pi');
     assert.equal(decision.targetRole, 'SOL_DIAGNOSE');
     assert.equal(decision.nextState, 'AWAITING_SOL_DIAGNOSE');
     assert.ok(decision.evidenceRefs.some((r) => r === `rejection:${rejectionCode}`));

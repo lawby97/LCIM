@@ -135,6 +135,10 @@ export const TRANSITIONS = Object.freeze({
   AWAITING_SOL_RECHECK: Object.freeze({
     SOL_REVIEW_PASSED: 'UNIT_COMPLETE',
     RESULT_ACCEPTED_HIGH_RISK: 'AWAITING_SOL_FINAL_REVIEW', // recheck passed but HIGH_RISK final review not yet proven
+    // Another open authoritative defect from the same final review has not
+    // been repaired yet: one bounded repair per defect, sequentially, and
+    // completion stays blocked while ANY authoritative defect is open.
+    FAILURE_FIRST_CREDIBLE: 'AWAITING_REPAIR',
     PRO_MAX_JUSTIFIED: 'AWAITING_PRO_MAX',
     STUCK: 'STOPPED_STUCK',
     BUDGET_EXHAUSTED: 'STOPPED_BUDGET',

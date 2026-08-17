@@ -51,7 +51,7 @@
 import { ConfigError } from '../../shared/errors.mjs';
 import { SolAskError } from '../contracts/errors.mjs';
 import { assertSolCallType, solTypeBlockFor } from '../contracts/call-types.mjs';
-import { generateSolAskId } from '../contracts/ids.mjs';
+import { adjacentDefectFindingId, generateSolAskId } from '../contracts/ids.mjs';
 import { SOL_SCHEMA_VERSION } from '../contracts/registry.mjs';
 import { validateSolAsk, validateSourceSet } from '../contracts/validate.mjs';
 import {
@@ -210,14 +210,24 @@ export function compileSolAsk(input, opts = {}) {
       );
     }
     const finding = (priorResponse.findings ?? []).find((f) => f?.findingId === input.recheck?.priorFindingRef);
-    if (finding === undefined) {
+    let priorFinding = finding;
+    if (priorFinding === undefined) {
+      // Fifth-review rule: an accepted adjacentCriticalDefect is an
+      // authoritative defect record with a deterministic controller
+      // identity; the exact RECHECK of that defect resolves through the
+      // same deterministic identity (no caller-supplied mapping).
+      const adjacent = (priorResponse.adjacentCriticalDefects ?? [])
+        .find((d) => adjacentDefectFindingId(d) === input.recheck?.priorFindingRef);
+      if (adjacent !== undefined) priorFinding = adjacent;
+    }
+    if (priorFinding === undefined) {
       throw new SolAskError(
-        `SOL RECHECK prior finding '${input.recheck?.priorFindingRef}' does not resolve to an actual finding of the prior response; invented or swapped prior findings are rejected`,
+        `SOL RECHECK prior finding '${input.recheck?.priorFindingRef}' does not resolve to an actual finding (or accepted adjacent critical defect) of the prior response; invented or swapped prior findings are rejected`,
         'PRIOR_FINDING_UNKNOWN',
         { priorFindingRef: input.recheck?.priorFindingRef },
       );
     }
-    const priorFindingDigest = sha256Hex(JSON.stringify(canonicalizeJson(finding)));
+    const priorFindingDigest = sha256Hex(JSON.stringify(canonicalizeJson(priorFinding)));
     recheckBlock = {
       ...input.recheck,
       priorAskId: priorAsk.askId,

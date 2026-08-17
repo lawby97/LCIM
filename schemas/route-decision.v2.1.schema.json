@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcim.local/schemas/route-decision.v2.1.schema.json",
+  "$comment": "Sprint 05 owned: controller-owned deterministic route decision record — immutable version 2.1.0 (LCIM V2.0.1). Records one deterministic routing decision for a work unit: which provider/model/role to dispatch next (or which stop/fail state to enter), the machine-readable reason code, the escalation state machine state before/after the decision, and the call-budget snapshot at decision time. Decisions are audit records (requirement: route decisions record reason codes and budgets for later audit) and are NEVER model-authored. reasoningLevel is XHIGH or MAX (never below XHIGH; MAX requires a machine-readable escalationJustification). DeepSeek Pro MAX (ROUTE_IMPLEMENT_PRO_MAX) is escalation-only and ALWAYS requires escalationJustification with one of the three locked bases. Since 2.1.0, every SOL decision targets the EXACT automatic SOL channel: gpt-5.6-sol (GPT-5.6 Sol) on provider 'pi' at reasoningLevel XHIGH — the strict controller-side openai-codex transport gate (see docs/v2-codex-sol-oauth.md). The classic sol-xhigh channel (provider 'sol') is valid ONLY on immutable 2.0.0 records (historical evidence validation); it has no production authority for current 2.1 routing. CODEX_OAUTH_UNAVAILABLE is the FAIL_NO_SUBSTITUTE reason when Pi's OAuth store is unusable. Terra/Luna are never default-ladder targets; they may appear only as explicitly configured fallback (substituteOf + CAPABILITY_FALLBACK_CONFIGURED). Conditional cross-field rules (Pro MAX justification, MAX reasoning justification, implementation/SOL target requirements, FAIL_NO_SUBSTITUTE reason codes, STOP reason codes, non-negative budget counts) are enforced in src/routing/registry.mjs (validateRouteDecision) because the Sprint-00 engine subset has no if/then. The schema uses only the Sprint-00 engine subset (no $ref/oneOf/format/minimum). Compatibility: version 2.0.0 records are validated against the immutable schemas/route-decision.v2.schema.json (unchanged semantics); this file is the new immutable version for records emitted from LCIM 2.0.1 onward.",
+  "title": "LCIM V2 route decision (2.1.0)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "decisionId",
+    "workUnitId",
+    "decision",
+    "reasonCode",
+    "state",
+    "nextState",
+    "decidedAt",
+    "budget",
+    "evidenceRefs"
+  ],
+  "properties": {
+    "schemaName": {
+      "const": "lcim.route-decision"
+    },
+    "schemaVersion": {
+      "const": "2.1.0"
+    },
+    "decisionId": {
+      "type": "string",
+      "pattern": "^lcim_route_[0-9a-f]{32}$"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^lcim_run_[0-9a-f]{32}$"
+    },
+    "workUnitId": {
+      "type": "string",
+      "pattern": "^lcim_wu_[0-9a-f]{32}$"
+    },
+    "decision": {
+      "enum": [
+        "ROUTE_IMPLEMENT_FLASH",
+        "ROUTE_IMPLEMENT_FLASH_MAX",
+        "ROUTE_IMPLEMENT_PRO_MAX",
+        "ROUTE_SOL_CONTRACT_CHECK",
+        "ROUTE_SOL_DIAGNOSE",
+        "ROUTE_SOL_FINAL_REVIEW",
+        "ROUTE_SOL_RECHECK",
+        "ROUTE_COMPLETE",
+        "STOP_STUCK",
+        "STOP_BUDGET",
+        "FAIL_NO_SUBSTITUTE"
+      ]
+    },
+    "reasonCode": {
+      "enum": [
+        "NORMAL_BOUNDED_TASK",
+        "RESULT_ACCEPTED",
+        "REPAIR_TARGETED_FIRST",
+        "MAX_JUSTIFIED",
+        "PRO_MAX_ESCALATION",
+        "SEMANTIC_REJECTION_ESCALATION",
+        "UNRESOLVED_HIGH_RISK_CONTRACT",
+        "SOL_RECHECK_AFTER_REPAIR",
+        "SOL_FINAL_REVIEW",
+        "EXACT_SUBSTITUTE_CONFIGURED",
+        "CAPABILITY_FALLBACK_CONFIGURED",
+        "CAPABILITY_GAP_NO_SUBSTITUTE",
+        "PROVIDER_UNAVAILABLE",
+        "CODEX_OAUTH_UNAVAILABLE",
+        "BUDGET_EXHAUSTED",
+        "SAME_AC_FAILED_AFTER_REPAIR",
+        "SUBSTANTIVE_SEMANTIC_CONTRADICTION",
+        "MODEL_ATTEMPTS_CONTRACT_CHANGE",
+        "CONFLATES_DISTINCT_CONCEPTS",
+        "NO_FALSIFIABLE_EXPLANATION",
+        "SCOPE_BROADENS_WITHOUT_EVIDENCE",
+        "SOL_FINDING_SURVIVES_ONE_REPAIR",
+        "PROVIDER_LACKS_CAPABILITY",
+        "REPAIR_LIMIT_REACHED"
+      ]
+    },
+    "state": {
+      "enum": [
+        "ROUTING_READY",
+        "AWAITING_IMPLEMENTATION",
+        "AWAITING_REPAIR",
+        "AWAITING_SOL_CONTRACT_CHECK",
+        "AWAITING_SOL_DIAGNOSE",
+        "AWAITING_SOL_FINAL_REVIEW",
+        "AWAITING_SOL_RECHECK",
+        "AWAITING_PRO_MAX",
+        "UNIT_COMPLETE",
+        "STOPPED_STUCK",
+        "STOPPED_BUDGET",
+        "FAILED_NO_SUBSTITUTE"
+      ]
+    },
+    "nextState": {
+      "enum": [
+        "ROUTING_READY",
+        "AWAITING_IMPLEMENTATION",
+        "AWAITING_REPAIR",
+        "AWAITING_SOL_CONTRACT_CHECK",
+        "AWAITING_SOL_DIAGNOSE",
+        "AWAITING_SOL_FINAL_REVIEW",
+        "AWAITING_SOL_RECHECK",
+        "AWAITING_PRO_MAX",
+        "UNIT_COMPLETE",
+        "STOPPED_STUCK",
+        "STOPPED_BUDGET",
+        "FAILED_NO_SUBSTITUTE"
+      ]
+    },
+    "targetProvider": {
+      "enum": [
+        "pi",
+        "sol",
+        "sol-pro"
+      ]
+    },
+    "targetModel": {
+      "enum": [
+        "deepseek-v4-flash",
+        "deepseek-pro-max",
+        "sol-xhigh",
+        "gpt-5.6-sol",
+        "terra",
+        "luna"
+      ]
+    },
+    "targetRole": {
+      "enum": [
+        "IMPLEMENT",
+        "REPAIR",
+        "SOL_CONTRACT_CHECK",
+        "SOL_DIAGNOSE",
+        "SOL_FINAL_REVIEW",
+        "SOL_RECHECK"
+      ]
+    },
+    "reasoningLevel": {
+      "enum": [
+        "XHIGH",
+        "MAX"
+      ]
+    },
+    "substituteOf": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "escalationJustification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "detail"
+      ],
+      "properties": {
+        "basis": {
+          "enum": [
+            "SOL_DIRECTED_REPAIR",
+            "CONFIRMED_CAPABILITY_FAILURE",
+            "CONTRACT_LOCKED_DIFFICULT_TASK"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runCallsConsumed",
+        "runCallsLimit",
+        "unitCallsConsumed",
+        "unitCallsLimit"
+      ],
+      "properties": {
+        "runCallsConsumed": {
+          "type": "integer"
+        },
+        "runCallsLimit": {
+          "type": "integer"
+        },
+        "unitCallsConsumed": {
+          "type": "integer"
+        },
+        "unitCallsLimit": {
+          "type": "integer"
+        }
+      }
+    },
+    "decidedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      }
+    }
+  }
+}

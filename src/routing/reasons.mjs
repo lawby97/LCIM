@@ -71,6 +71,10 @@ export const ROUTE_REASON_CODE = Object.freeze([
   'CAPABILITY_FALLBACK_CONFIGURED',
   'CAPABILITY_GAP_NO_SUBSTITUTE',
   'PROVIDER_UNAVAILABLE',
+  // V2.0.1: the GPT-5.6 Sol codex channel is unavailable because Pi's
+  // openai-codex OAuth store is missing/unusable (never a token problem
+  // reported in records — only the availability fact).
+  'CODEX_OAUTH_UNAVAILABLE',
   'BUDGET_EXHAUSTED',
   'SAME_AC_FAILED_AFTER_REPAIR',
   'SUBSTANTIVE_SEMANTIC_CONTRADICTION',

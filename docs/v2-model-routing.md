@@ -3,7 +3,9 @@
 Status: implemented by Sprint 05 (see `docs/v2-sprints/SPRINT_05_ROUTING.md`),
 with the SOL-S05-001..005 repair integrated. Sprint 11 fault and E2E tests
 exercise the policy in the `2.0.0` stable release; see
-[`v2-final-architecture.md`](v2-final-architecture.md).
+[`v2-final-architecture.md`](v2-final-architecture.md). V2.0.1 adds the
+automatic GPT-5.6 Sol codex SOL channel (`gpt-5.6-sol` through Pi's native
+openai-codex OAuth) — see [`v2-codex-sol-oauth.md`](v2-codex-sol-oauth.md).
 
 Purpose: implement the routing policy **deterministically and cheaply** so
 ordinary work does not spend SOL tokens deciding what model to use, while
@@ -141,15 +143,41 @@ exactly four roles:
 | `ROUTE_SOL_FINAL_REVIEW` | `SOL_FINAL_REVIEW` | accepted result on a HIGH_RISK_CLASS contract whose final review is not yet proven |
 | `ROUTE_SOL_RECHECK` | `SOL_RECHECK` | an open SOL finding that survived one targeted repair |
 
-Every automatic `ROUTE_SOL_*` decision first resolves exact sol-xhigh
-availability/capability via `discoverSolRoute(role, config)`: a configured
-`sol-xhigh` endpoint, provider `sol`, model `sol-xhigh`, XHIGH reasoning
-capability, and the required role. Missing/unavailable/invalid fails closed
-with `FAIL_NO_SUBSTITUTE` (`PROVIDER_UNAVAILABLE` / `CAPABILITY_GAP_NO_SUBSTITUTE`)
-— never a silent substitute, never a reasoning downgrade. `sol-pro`
-(ChatGPT SOL Pro, text-only) is reserved for Sprint 07 and is **not
-routable** from Sprint 05. The actual ask compiler is Sprint 06; Sprint 05
-pins only the routing contract (roles, targets, discovery, transitions).
+Every automatic `ROUTE_SOL_*` decision in CURRENT (2.1) production
+routing resolves the EXACT strict Codex transport gate, then exact
+availability/capability (SOL-S05-003, fifth-review rule):
+
+- **codex channel (2.1, the ONLY automatic SOL channel)** — endpoint
+  `gpt-5.6-sol` (GPT-5.6 Sol), provider channel `pi`, model
+  `gpt-5.6-sol`, reasoning `XHIGH`, role (`discoverSolCodexRoute`), plus
+  the controller-owned Pi openai-codex OAuth availability fact. Every 2.1
+  SOL role (`SOL_CONTRACT_CHECK`, `SOL_DIAGNOSE`, `SOL_FINAL_REVIEW`,
+  `SOL_RECHECK`) routes through the SAME strict gate: exactly
+  openai-codex / gpt-5.6-sol / XHIGH. The transport runs Pi as a trusted
+  CONTROLLER-SIDE provider client (canonical absolute entrypoint, strict
+  env allowlist, run-scoped isolated Pi agent dir, zero-tool model
+  surface, controller-pinned system prompt) — never inside the worker
+  execution boundary; see `docs/v2-codex-sol-oauth.md`.
+- **classic channel** — endpoint `sol-xhigh`, provider `sol` — has NO
+  production authority in 2.1 (fifth-review rule). Configuring the legacy
+  endpoint fails closed at routing with `SOL_CHANNEL_CLASSIC_NO_AUTHORITY`
+  (no route record is produced) and the classic execution branch is
+  structurally refused. `discoverSolRoute` remains available ONLY as
+  immutable 2.0.0 historical semantics for validating old 2.0 records.
+
+No channel configured fails closed with `FAIL_NO_SUBSTITUTE`
+(`PROVIDER_UNAVAILABLE`); an unusable codex OAuth store fails closed
+with `FAIL_NO_SUBSTITUTE` / `CODEX_OAUTH_UNAVAILABLE`; a configured
+`sol.command` fails closed with `SOL_COMMAND_MASQUERADE` — never a
+silent substitute, never a reasoning downgrade, never a classic bypass.
+Route-decision records use the immutable schema version `2.1.0`
+(`schemas/route-decision.v2.1.schema.json`), whose SOL decisions must be
+EXACTLY `gpt-5.6-sol` / provider `pi` / XHIGH; the `2.0.0` schema file
+and semantics are unchanged (old 2.0 records with `sol-xhigh` remain
+readable/valid under their original schema). `sol-pro` (ChatGPT SOL Pro,
+text-only) is reserved for Sprint 07 and is **not routable** from Sprint
+05. The actual ask compiler is Sprint 06; Sprint 05 pins only the
+routing contract (roles, targets, discovery, transitions).
 
 ## 6. Controller-owned STUCK criteria (requirement 5)
 

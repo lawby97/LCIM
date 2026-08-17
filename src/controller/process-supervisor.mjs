@@ -75,6 +75,29 @@ const DEFAULT_VERIFY_GRACE_MS = 5000;
 const PS_TIMEOUT_MS = 5000;
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
 
+// Process inspection is a controller security primitive. Never resolve it
+// through PATH: a target/user-controlled PATH must not decide whether an
+// orphaned Pi process exists.
+function resolveCanonicalPsExecutable() {
+  for (const candidate of ['/bin/ps', '/usr/bin/ps']) {
+    try {
+      const stat = fs.lstatSync(candidate);
+      if (stat.isSymbolicLink() || !stat.isFile()) continue;
+      const resolved = fs.realpathSync(candidate);
+      const resolvedStat = fs.statSync(resolved);
+      if (!resolvedStat.isFile()) continue;
+      fs.accessSync(resolved, fs.constants.X_OK);
+      return resolved;
+    } catch {
+      // Try the next canonical system location only; PATH is never a
+      // fallback for process-lifetime authority.
+    }
+  }
+  throw new ConfigError('controller could not establish a canonical absolute ps executable; process-tree quiescence cannot be proven');
+}
+
+export const PROCESS_TABLE_EXECUTABLE = resolveCanonicalPsExecutable();
+
 export class ProcessLifetimeError extends LcimError {
   constructor(message, details = null) {
     super(message, 'PROCESS_TREE_QUIESCENCE_FAILED', details);
@@ -94,7 +117,7 @@ function parsePsLine(line) {
 }
 
 function runPs(args) {
-  const result = spawnSync('ps', args, {
+  const result = spawnSync(PROCESS_TABLE_EXECUTABLE, args, {
     encoding: 'utf8',
     timeout: PS_TIMEOUT_MS,
     maxBuffer: MAX_OUTPUT_BYTES,
@@ -117,8 +140,9 @@ function runPs(args) {
 }
 
 /**
- * The default macOS process table: `ps` only, no command lines, no
- * environment persistence. `onBegin(rootPid)` is the test seam hook a
+ * The default macOS process table: canonical absolute `/bin/ps` (realpath
+ * pinned at module load) only, no command lines or environment persistence.
+ * `onBegin(rootPid)` is the test seam hook a
  * wrapped table may use to learn the direct-child identity.
  */
 export function createPsProcessTable() {
@@ -194,6 +218,8 @@ export function createProcessSupervisor({
   let scanCount = 0;
   let lastScanAt = null;
   let result = null;
+  let processTableFailure = null;
+  let markerScanFailure = null;
   const startedAt = Date.now();
   const sentSignals = { sigterm: new Set(), sigkill: new Set() };
 
@@ -209,16 +235,30 @@ export function createProcessSupervisor({
     })
     : Object.freeze({ primaryProof: 'PROCESS_TREE_QUIESCENCE', supervisorRole: 'PRIMARY' });
 
+  function validRow(row) {
+    return row !== null
+      && typeof row === 'object'
+      && Number.isSafeInteger(row.pid) && row.pid > 0
+      && Number.isSafeInteger(row.ppid) && row.ppid >= 0
+      && Number.isSafeInteger(row.pgid) && row.pgid >= 0
+      && typeof row.state === 'string';
+  }
+
+  function readRows() {
+    try {
+      const rows = table.list();
+      if (!Array.isArray(rows) || !rows.every(validRow)) throw new Error('malformed process table rows');
+      return rows;
+    } catch {
+      processTableFailure = 'process-table-unreadable';
+      return null;
+    }
+  }
+
   function scan() {
     if (!began || rootPid === null) return [];
-    let all;
-    try {
-      all = table.list();
-    } catch {
-      // Unreadable table: quiescence cannot be proven; quiesce() will
-      // report fail-closed from the last-known state.
-      return [];
-    }
+    const all = readRows();
+    if (all === null) return null;
     const byPpid = new Map();
     for (const row of all) {
       if (!byPpid.has(row.ppid)) byPpid.set(row.ppid, []);
@@ -248,62 +288,61 @@ export function createProcessSupervisor({
   }
 
   function markerCandidates() {
-    if (invocationMarker === null || invocationMarker.length === 0) return [];
-    let lines;
+    if (invocationMarker === null || invocationMarker.length === 0) return new Set();
     try {
-      lines = table.listWithEnv();
+      if (typeof table.listWithEnv !== 'function') throw new Error('marker enumeration unavailable');
+      const lines = table.listWithEnv();
+      if (!Array.isArray(lines) || !lines.every((line) => typeof line === 'string')) throw new Error('malformed marker process table');
+      const out = new Set();
+      for (const line of lines) {
+        if (!line.includes(invocationMarker)) continue;
+        const pid = Number.parseInt(line.trim().split(/\s+/)[0] ?? '', 10);
+        if (!Number.isSafeInteger(pid) || pid <= 1) throw new Error('marker row did not contain a valid pid');
+        out.add(pid);
+      }
+      return out;
     } catch {
-      return [];
+      markerScanFailure = 'marker-scan-unreadable';
+      return null;
     }
-    const out = new Set();
-    for (const line of lines) {
-      if (!line.includes(invocationMarker)) continue;
-      const pid = Number.parseInt(line.trim().split(/\s+/)[0] ?? '', 10);
-      if (Number.isSafeInteger(pid) && pid > 1) out.add(pid);
-    }
-    return out;
   }
 
   /**
-   * Live survivors: tracked pids present in the fresh table (zombies
-   * excluded — they cannot execute) plus any live process still in the
-   * direct child's process group plus any env-marker match.
+   * Live survivors include the direct root itself, every retained
+   * descendant, every member of its process group, and every marker match.
+   * The root must never disappear from the proof merely because it has no
+   * descendants.
    */
-  function survivorsFrom(all, marker = null) {
+  function survivorsFrom(all, marker) {
     const byPid = new Map(all.map((row) => [row.pid, row]));
     const survivors = new Set();
+    const root = byPid.get(rootPid);
+    if (root !== undefined && !root.state.startsWith('Z')) survivors.add(rootPid);
     for (const pid of tracked.keys()) {
       const row = byPid.get(pid);
       if (row !== undefined && !row.state.startsWith('Z')) survivors.add(pid);
     }
     if (rootPgid !== null) {
       for (const row of all) {
-        if (row.pid === rootPid) continue;
         if (row.pgid === rootPgid && !row.state.startsWith('Z')) survivors.add(row.pid);
       }
     }
-    if (marker !== null) {
-      for (const pid of marker) survivors.add(pid);
-    }
+    for (const pid of marker) survivors.add(pid);
     return survivors;
   }
 
-  async function waitForAbsence(targets, timeoutMs) {
+  async function waitForAbsence(timeoutMs) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const all = scan();
-      if (all.length === 0) {
-        // Unreadable process table: cannot prove absence; keep waiting,
-        // and the final verification will fail closed.
-        await sleep(pollIntervalMs);
-        continue;
-      }
-      const remaining = survivorsFrom(all, null);
-      if (remaining.size === 0) return new Set();
+      const marker = markerCandidates();
+      if (all === null || marker === null) return null;
+      if (survivorsFrom(all, marker).size === 0) return new Set();
       await sleep(Math.min(pollIntervalMs, 50));
     }
     const final = scan();
-    return final.length === 0 ? null : survivorsFrom(final, null);
+    const marker = markerCandidates();
+    return final === null || marker === null ? null : survivorsFrom(final, marker);
   }
 
   /** Record the direct child identity and begin continuous tracking. */
@@ -311,31 +350,19 @@ export function createProcessSupervisor({
     if (!Number.isSafeInteger(pid) || pid <= 1) return false;
     rootPid = pid;
     if (typeof table.onBegin === 'function') table.onBegin(pid);
-    let all;
-    try {
-      all = table.list();
-    } catch {
-      all = [];
-    }
-    const rootRow = all.find((row) => row.pid === pid);
-    rootPgid = rootRow?.pgid ?? pid;
     began = true;
+    const all = readRows();
+    const rootRow = all?.find((row) => row.pid === pid);
+    rootPgid = rootRow?.pgid ?? pid;
     scan();
-    timer = setInterval(() => {
-      try {
-        scan();
-      } catch {
-        // A scan failure is recorded via quiesce(); tracking continues.
-      }
-    }, pollIntervalMs);
+    timer = setInterval(() => { scan(); }, pollIntervalMs);
     if (typeof timer.unref === 'function') timer.unref();
     return true;
   }
 
   /**
-   * Terminate all identified model-controlled descendants and verify
-   * absence. Idempotent. NEVER returns quiescent=true unless a fresh
-   * process-table read proves no tracked/group/marker survivor remains.
+   * Terminate all identified model-controlled processes and prove absence.
+   * A table/marker inspection failure is never converted to an empty set.
    */
   async function quiesce({ terminate = true } = {}) {
     if (result !== null) return result;
@@ -352,6 +379,12 @@ export function createProcessSupervisor({
         markerMatches: [],
         terminationAttempted: false,
         termination: null,
+        processTableReadable: true,
+        markerScanVerified: true,
+        rootPidAbsent: true,
+        processGroupAbsent: true,
+        markerAbsent: true,
+        processAbsenceVerified: true,
         quiescenceVerified: true,
         remainingPids: [],
         scanCount: 0,
@@ -368,48 +401,59 @@ export function createProcessSupervisor({
       timer = null;
     }
     let all = scan();
-    const marker = markerCandidates();
-    for (const pid of marker) {
-      if (!tracked.has(pid)) {
-        tracked.set(pid, { pid, pgid: null, firstSeenAt: new Date().toISOString(), source: 'env-marker' });
+    let marker = markerCandidates();
+    if (marker !== null) {
+      for (const pid of marker) {
+        if (!tracked.has(pid) && pid !== rootPid) {
+          tracked.set(pid, { pid, pgid: null, firstSeenAt: new Date().toISOString(), source: 'env-marker' });
+        }
       }
     }
-    let survivors = all.length === 0 ? null : survivorsFrom(all, marker);
-    let terminationAttempted = terminate && survivors !== null && survivors.size > 0;
+    let survivors = all === null || marker === null ? null : survivorsFrom(all, marker);
+    const terminationAttempted = terminate && survivors !== null && survivors.size > 0;
     if (terminate && survivors !== null && survivors.size > 0) {
-      // Sweep 1: SIGTERM every identified survivor (detached or not).
-      for (const pid of survivors) {
-        if (table.kill(pid, 'SIGTERM')) sentSignals.sigterm.add(pid);
-      }
-      const afterTerm = await waitForAbsence(survivors, terminateGraceMs);
-      if (afterTerm === null) {
+      if (typeof table.kill !== 'function') {
+        processTableFailure = 'process-termination-unavailable';
         survivors = null;
-      } else if (afterTerm.size > 0) {
-        survivors = afterTerm;
-        // Sweep 2: SIGKILL the remainder.
-        for (const pid of survivors) {
-          if (table.kill(pid, 'SIGKILL')) sentSignals.sigkill.add(pid);
-        }
-        const afterKill = await waitForAbsence(survivors, verifyGraceMs);
-        survivors = afterKill === null ? null : afterKill;
       } else {
-        survivors = new Set();
+        for (const pid of survivors) {
+          if (table.kill(pid, 'SIGTERM')) sentSignals.sigterm.add(pid);
+        }
+        const afterTerm = await waitForAbsence(terminateGraceMs);
+        if (afterTerm === null) {
+          survivors = null;
+        } else if (afterTerm.size > 0) {
+          survivors = afterTerm;
+          for (const pid of survivors) {
+            if (table.kill(pid, 'SIGKILL')) sentSignals.sigkill.add(pid);
+          }
+          survivors = await waitForAbsence(verifyGraceMs);
+        } else {
+          survivors = new Set();
+        }
       }
     }
 
-    // Final verification on a FRESH table: absence must be proven, not
-    // assumed. An unreadable table fails closed.
-    let finalRows;
-    try {
-      finalRows = table.list();
-    } catch {
-      finalRows = [];
-    }
+    // Fresh final verification includes root pid, retained descendants,
+    // process group, and marker matches. Every failure is NOT PROVEN.
+    const finalRows = scan();
     const finalMarker = markerCandidates();
-    const finalSurvivors = finalRows.length === 0
-      ? null
-      : survivorsFrom(finalRows, finalMarker);
-    const quiescenceVerified = finalSurvivors !== null && finalSurvivors.size === 0;
+    const processTableReadable = finalRows !== null && processTableFailure === null;
+    const markerScanVerified = finalMarker !== null && markerScanFailure === null;
+    const root = finalRows === null ? null : finalRows.find((row) => row.pid === rootPid && !row.state.startsWith('Z'));
+    const rootPidAbsent = processTableReadable && root === undefined;
+    const processGroupAbsent = processTableReadable
+      && (rootPgid === null || !finalRows.some((row) => row.pgid === rootPgid && !row.state.startsWith('Z')));
+    const markerAbsent = markerScanVerified && finalMarker.size === 0;
+    const finalSurvivors = processTableReadable && markerScanVerified
+      ? survivorsFrom(finalRows, finalMarker)
+      : null;
+    const quiescenceVerified = processTableReadable
+      && markerScanVerified
+      && rootPidAbsent
+      && processGroupAbsent
+      && markerAbsent
+      && finalSurvivors.size === 0;
 
     const evidence = {
       schemaName: PROCESS_LIFETIME_EVIDENCE_SCHEMA,
@@ -427,14 +471,26 @@ export function createProcessSupervisor({
         firstSeenAt: entry.firstSeenAt,
         source: entry.source,
       }))),
-      markerMatches: Object.freeze([...finalMarker]),
+      // Fifth-review rule: an unreadable/malformed marker scan is UNKNOWN
+      // (null), never an empty set — absence must be positively verified.
+      markerMatches: Object.freeze(finalMarker === null ? null : [...finalMarker]),
       terminationAttempted,
       termination: Object.freeze({
         sigtermPids: Object.freeze([...sentSignals.sigterm]),
         sigkillPids: Object.freeze([...sentSignals.sigkill]),
       }),
+      processTableReadable,
+      markerScanVerified,
+      rootPidAbsent,
+      processGroupAbsent,
+      markerAbsent,
+      processAbsenceVerified: quiescenceVerified,
       quiescenceVerified,
-      remainingPids: Object.freeze(finalSurvivors === null ? [] : [...finalSurvivors]),
+      // Fifth-review rule: unknown survivor state is UNKNOWN (null), never
+      // an empty array — a missing survivor list must not look like proof.
+      remainingPids: Object.freeze(finalSurvivors === null ? null : [...finalSurvivors]),
+      processTableFailure,
+      markerScanFailure,
       scanCount,
       lastScanAt,
       verifiedAt: new Date().toISOString(),
@@ -473,6 +529,99 @@ export function createProcessSupervisor({
 /** Generate one invocation-boundary marker (public-safe random hex). */
 export function generateInvocationMarker() {
   return crypto.randomBytes(12).toString('hex');
+}
+
+/**
+ * Terminate every live process whose environment still carries an
+ * invocation marker (crash-recovery sweep for orphaned controller-side Pi
+ * SOL processes). SIGTERM, grace window, SIGKILL, then a fresh-table
+ * verification. Never infers absence that was not observed: `remaining`
+ * lists every pid still carrying the marker after the sweep.
+ *
+ * @param {string} marker - invocation marker (LCIM_INVOCATION_MARKER value)
+ * @param {object} [options] - { processTable, terminateGraceMs, verifyGraceMs }
+ * @returns {Readonly<object>} frozen { identified, sigterm, sigkill, remaining }
+ */
+export function terminateProcessesByMarker(marker, { processTable = null, terminateGraceMs = 3000, verifyGraceMs = 5000 } = {}) {
+  if (typeof marker !== 'string' || marker.length === 0) {
+    throw new ConfigError('marker-based termination requires a non-empty marker');
+  }
+  const table = processTable ?? createPsProcessTable();
+  const scan = () => {
+    try {
+      if (typeof table?.listWithEnv !== 'function') return null;
+      const lines = table.listWithEnv();
+      if (!Array.isArray(lines) || !lines.every((line) => typeof line === 'string')) return null;
+      const pids = new Set();
+      for (const line of lines) {
+        if (!line.includes(marker)) continue;
+        const pid = Number.parseInt(line.trim().split(/\s+/)[0] ?? '', 10);
+        if (!Number.isSafeInteger(pid) || pid <= 1) return null;
+        pids.add(pid);
+      }
+      return pids;
+    } catch {
+      return null; // unreadable/malformed table: absence cannot be proven
+    }
+  };
+  const identified = scan();
+  const sent = { sigterm: [], sigkill: [] };
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const waitForAbsence = async (targets, timeoutMs) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const current = scan();
+      if (current === null) {
+        await sleep(50);
+        continue;
+      }
+      const remaining = new Set([...current].filter((pid) => targets.has(pid)));
+      if (remaining.size === 0) return new Set();
+      await sleep(50);
+    }
+    const final = scan();
+    if (final === null) return null;
+    return new Set([...final].filter((pid) => targets.has(pid)));
+  };
+  return Promise.resolve().then(async () => {
+    let remaining = identified === null ? null : new Set(identified);
+    if (identified !== null && identified.size > 0) {
+      for (const pid of identified) {
+        try {
+          if (table.kill(pid, 'SIGTERM')) sent.sigterm.push(pid);
+        } catch {
+          // process already gone; absence is proven by the final scan
+        }
+      }
+      const afterTerm = await waitForAbsence(identified, terminateGraceMs);
+      if (afterTerm === null) {
+        remaining = null;
+      } else if (afterTerm.size > 0) {
+        for (const pid of afterTerm) {
+          try {
+            if (table.kill(pid, 'SIGKILL')) sent.sigkill.push(pid);
+          } catch {
+            // process already gone; absence is proven by the final scan
+          }
+        }
+        const afterKill = await waitForAbsence(afterTerm, verifyGraceMs);
+        remaining = afterKill === null ? null : afterKill;
+      } else {
+        remaining = new Set();
+      }
+    }
+    const finalScan = scan();
+    const finalRemaining = finalScan === null ? null : new Set(finalScan);
+    return Object.freeze({
+      // Fifth-review rule: an unreadable/malformed process table is
+      // UNKNOWN (null), never an empty set.
+      identified: Object.freeze(identified === null ? null : [...identified].sort((a, b) => a - b)),
+      sigterm: Object.freeze(sent.sigterm),
+      sigkill: Object.freeze(sent.sigkill),
+      remaining: Object.freeze(finalRemaining === null ? null : [...finalRemaining].sort((a, b) => a - b)),
+      verified: finalScan !== null,
+    });
+  });
 }
 
 /**

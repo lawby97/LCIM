@@ -62,7 +62,7 @@ test('an accepted result on a HIGH_RISK contract routes to SOL final review firs
   );
   assert.equal(decision.decision, 'ROUTE_SOL_FINAL_REVIEW');
   assert.equal(decision.reasonCode, 'SOL_FINAL_REVIEW');
-  assert.equal(decision.targetModel, 'sol-xhigh');
+  assert.equal(decision.targetModel, 'gpt-5.6-sol');
   assert.equal(decision.targetRole, 'SOL_FINAL_REVIEW');
   assert.equal(decision.nextState, 'AWAITING_SOL_FINAL_REVIEW');
 });

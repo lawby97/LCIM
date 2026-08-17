@@ -1,12 +1,15 @@
 {
   "name": "lcim",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
-  "description": "Low Cost Implementation Model — V2 controller (Sprint 00 foundation baseline)",
+  "description": "Low Cost Implementation Model — V2 controller (2.0.1: automatic GPT-5.6 Sol XHIGH review via Pi openai-codex OAuth)",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.1"
   },
   "bin": {
     "lcim": "bin/lcim.mjs"

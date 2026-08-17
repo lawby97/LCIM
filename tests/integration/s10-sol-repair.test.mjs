@@ -42,6 +42,8 @@ import { fileURLToPath } from 'node:url';
 
 import { setupProject } from '../../src/project/config.mjs';
 import { runController } from '../../src/controller/orchestrator.mjs';
+import { codexSeam } from './codex-seam.mjs';
+import { resolveRunDir } from '../../src/config/runtime-path.mjs';
 import {
   SEATBELT_EXECUTABLE,
   authorizeWorkerExecutionBoundary,
@@ -436,63 +438,69 @@ test('SOL-S10-001/R2-A: HTTPS DeepSeek production Pi route completes through the
   assert.equal(brokerEvidence.tlsCa.file, tlsFixture().caPath);
 });
 
-test('SOL-S10-001/R2-B: HTTPS SOL production Pi route completes through the broker with a compiled ask', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
+test('SOL-S10-001/R2-B: the codex SOL route completes through the strict controller-side transport with a compiled ask', async (t) => {
   withBrokerCaEnv(t);
   withCredentialEnv(t, 'DEEPSEEK_API_KEY', 's10-deepseek-test-key-0123456789abcdef');
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-sol-test-key-0123456789abcdef');
   const deepseek = await fakeUpstream(t, { name: 'deepseek-https', agent: deepseekAgent(), tls: true });
-  const sol = await fakeUpstream(t, { name: 'sol-https', agent: solAgent, tls: true });
-  const fixture = makeTarget(t, { deepseekUrl: deepseek.baseUrl, solUrl: sol.baseUrl });
+  const fixture = makeTarget(t, { deepseekUrl: deepseek.baseUrl, solUrl: null });
+  const configPath = path.join(fixture.root, '.lcim', 'project.json');
+  const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  cfg.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  fs.writeFileSync(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: fixture.root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.disposition, 'SEMANTICALLY_ACCEPTED');
   assert.equal(semanticCalls, 2);
   assert.ok(result.routeDecisions.some((decision) => decision.decision === 'ROUTE_SOL_DIAGNOSE'));
+  const solDecision = result.routeDecisions.find((decision) => decision.decision === 'ROUTE_SOL_DIAGNOSE');
+  assert.equal(solDecision.targetModel, 'gpt-5.6-sol');
+  assert.equal(solDecision.targetProvider, 'pi');
+  assert.equal(solDecision.reasoningLevel, 'XHIGH');
   assert.equal(result.finalSummary.invocations, 3);
   assert.equal(result.finalSummary.starts, 3);
   assert.equal(result.finalSummary.completions, 3);
   assert.equal(result.finalSummary.assessments, 3);
 
-  // DeepSeek: two worker calls x two agent turns. SOL: one exact ask call.
+  // DeepSeek stays BROKER_ONLY: two worker calls x two agent turns through
+  // exactly two fresh broker listeners (worker + repair). The SOL role runs
+  // through the controller-side Codex transport — NO SOL broker exists.
   assert.equal(deepseek.requests.length, 4);
   assert.ok(deepseek.requests.every((request) => request.auth === 'Bearer s10-deepseek-test-key-0123456789abcdef'));
-  assert.equal(sol.requests.length, 1);
-  assert.equal(sol.requests[0].model, 'sol-xhigh');
-  assert.equal(sol.requests[0].auth, 'Bearer s10-sol-test-key-0123456789abcdef');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
-  assert.match(sol.requests[0].prompt, /Criterion \(sideEffectId\): se_[0-9a-f]{64}/);
-
-  // R3: every external provider invocation owns a FRESH broker listener on
-  // a distinct port; evidence is per-invocation. Three brokers: deepseek
-  // worker, SOL, deepseek repair.
-  assert.equal(result.brokerEvidencePaths.length, 3);
+  assert.equal(result.brokerEvidencePaths.length, 2);
   const brokerEvidences = result.brokerEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
   const ports = brokerEvidences.map((evidence) => evidence.port);
-  assert.equal(new Set(ports).size, 3, 'each invocation broker endpoint must be distinct');
+  assert.equal(new Set(ports).size, 2, 'each DeepSeek invocation broker endpoint must be distinct');
   assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['deepseek-v4-flash'] !== undefined).length, 2);
-  assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['sol-xhigh'] !== undefined).length, 1);
+  assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['sol-xhigh'] !== undefined).length, 0, 'the codex SOL route never creates a SOL broker');
   const deepseekRequests = brokerEvidences.reduce((sum, evidence) => sum + (evidence.byModel['deepseek-v4-flash']?.requests ?? 0), 0);
-  const solRequests = brokerEvidences.reduce((sum, evidence) => sum + (evidence.byModel['sol-xhigh']?.requests ?? 0), 0);
   assert.equal(deepseekRequests, 4);
-  assert.equal(solRequests, 1);
-  assert.equal(brokerEvidences.reduce((sum, evidence) => sum + evidence.totalRequests, 0), 5);
   assert.ok(brokerEvidences.every((evidence) => evidence.invocationsRegistered === 1 && evidence.invocationsRevoked === 1));
 
-  // R3: each invocation got its own execution boundary pinned to exactly its
-  // own broker endpoint; no boundary knows another invocation's port.
-  assert.equal(result.boundaryEvidencePaths.length, 3);
-  const boundaries = result.boundaryEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
-  assert.ok(boundaries.every((evidence) => evidence.network.mode === 'BROKER_ONLY'));
-  assert.ok(boundaries.every((evidence) => evidence.network.brokerReachable === true));
-  assert.ok(boundaries.every((evidence) => evidence.network.otherLoopbackBlocked === true));
-  const boundaryPorts = boundaries.map((evidence) => evidence.network.broker.port);
-  assert.deepEqual([...boundaryPorts].sort(), [...ports].sort(), 'each boundary pins exactly its own invocation broker endpoint');
+  // The compiled Sprint-06 ask reached the fixture Pi transport and the
+  // transport evidence records the observed strict-gate facts. Sixth-review
+  // rule: the immutable transport proof is persisted BEFORE parse; the
+  // semantic-acceptance record is persisted after compilation.
+  assert.equal(result.solTransportEvidencePaths.length, 2);
+  const evidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths[0], 'utf8'));
+  assert.equal(evidence.phase, 'TRANSPORT_PROOF');
+  assert.equal(evidence.credentialLeak, false);
+  assert.equal(evidence.transportProofs.gatePassed, true);
+  const semanticEvidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths.find((file) => file.endsWith('.semantic.json')), 'utf8'));
+  assert.equal(semanticEvidence.finalAcceptance, true, 'evidence must stay consistent with the final acceptance decision');
+  const runDir = resolveRunDir(fixture.root, result.runId);
+  const askDir = path.join(runDir, 'controller', 'sol', 'asks');
+  const askArtifact = JSON.parse(fs.readFileSync(path.join(askDir, fs.readdirSync(askDir)[0]), 'utf8'));
+  assert.equal(askArtifact.callType, 'SOL_DIAGNOSE');
+  assert.match(askArtifact.askId, /^lcim_sol_ask_/);
 });
 
 test('SOL-S10-001/R2-C: sandbox reaches ONLY the planned broker port (empty listener is not authority)', async (t) => {
@@ -756,87 +764,96 @@ test('SOL-S10-001/R2-G: DeepSeek token cannot call SOL, SOL token cannot call De
   assert.equal(connectResult.closed, true);
 });
 
-test('SOL-S10-001/R2-H: generic SOL bypass via a worker token is rejected with zero SOL upstream calls; the legitimate compiled SOL route succeeds', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
+test('SOL-S10-001/R2-H: generic SOL bypass via a worker token is rejected; the legitimate compiled SOL route succeeds via the codex transport', async (t) => {
   withCredentialEnv(t, 'DEEPSEEK_API_KEY', 's10-deepseek-test-key-0123456789abcdef');
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-sol-test-key-0123456789abcdef');
   const deepseek = await fakeUpstream(t, { name: 'deepseek', agent: deepseekAgent({ bypassOnSession: 1 }) });
-  const sol = await fakeUpstream(t, { name: 'sol', agent: solAgent });
-  const fixture = makeTarget(t, { deepseekUrl: deepseek.baseUrl, solUrl: sol.baseUrl });
+  const fixture = makeTarget(t, { deepseekUrl: deepseek.baseUrl, solUrl: null });
+  const configPath = path.join(fixture.root, '.lcim', 'project.json');
+  const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  cfg.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  fs.writeFileSync(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: fixture.root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
   // The worker invocation's sandboxed Pi attempted the bash tool carrying a
   // generic SOL request. Under the R4 tool surface the shell/process tool is
   // rejected BEFORE any process can exist (pi reports the tool as not found;
-  // the Seatbelt boundary denies process creation regardless), so the bypass
-  // never executed and never entered the SOL controller path (no SOL ledger
-  // record, zero SOL upstream calls). The broker additionally rejects
-  // cross-route tokens (R2-G) — both layers fail closed.
+  // the Seatbelt boundary denies process creation regardless). The codex SOL
+  // transport is controller-side and has no broker/network surface a worker
+  // token could reach: the bypass never executed and never entered the SOL
+  // controller path (no SOL broker ever existed, zero generic-SOL bytes).
   assert.equal(result.ok, true);
   assert.equal(result.finalSummary.invocations, 3, 'worker + legitimate SOL + repair — the bypass created no SOL invocation');
-  assert.equal(sol.requests.length, 1, 'the SOL upstream saw ONLY the legitimate compiled ask');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
-  assert.equal(sol.requests[0].prompt.includes('GENERIC SOL PROMPT BYPASS'), false, 'the bypass prompt never reached the SOL upstream');
+  assert.equal(result.brokerEvidencePaths.length, 2, 'brokers exist ONLY for the two DeepSeek worker invocations');
+  for (const file of result.brokerEvidencePaths) {
+    const evidence = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(evidence.byModel['sol-xhigh'], undefined, 'no SOL route may ever register on a broker');
+  }
   const toolRejected = deepseek.requests.some((request) => request.body.includes('Tool bash not found'));
   assert.equal(toolRejected, true, 'the sandboxed bash tool call must have been rejected as unavailable (zero child creation)');
   assert.equal(deepseek.requests.some((request) => request.body.includes('GENERIC SOL PROMPT BYPASS')), false, 'the generic SOL bypass payload never reached ANY upstream');
+  // The legitimate SOL leg completed through the controller-side codex
+  // transport bound to the compiled ask (the fixture Pi emits the canned
+  // CAUSE_IDENTIFIED response for the compiled SOL_DIAGNOSE ask).
+  const runDir = resolveRunDir(fixture.root, result.runId);
+  const askDir = path.join(runDir, 'controller', 'sol', 'asks');
+  const askArtifact = JSON.parse(fs.readFileSync(path.join(askDir, fs.readdirSync(askDir)[0]), 'utf8'));
+  assert.match(askArtifact.askId, /^lcim_sol_ask_/);
+  assert.equal(JSON.stringify(askArtifact).includes('GENERIC SOL'), false, 'the compiled ask contains zero attacker content');
+  assert.equal(result.solTransportEvidencePaths.length, 2, 'the codex transport proof + semantic acceptance evidence exist for the legitimate SOL invocation');
 });
 
-test('SOL-S10-001/R2-I: local worker (DENY_ALL, no broker) followed by external SOL succeeds through a FRESH SOL broker and boundary', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
-  withBrokerCaEnv(t);
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-sol-test-key-0123456789abcdef');
+test('SOL-S10-001/R2-I: local worker (DENY_ALL, no broker) followed by the codex SOL transport succeeds without any SOL broker', async (t) => {
   // DEEPSEEK_API_KEY is deliberately NOT set: the local worker must not need
   // any provider credential, and no DeepSeek broker route may ever exist.
-  const sol = await fakeUpstream(t, { name: 'sol-https', agent: solAgent, tls: true });
-  const fixture = makeTarget(t, { solUrl: sol.baseUrl });
+  const fixture = makeTarget(t, { deepseekUrl: null, solUrl: null });
   installLocalWorkerFixture(t, fixture.root);
+  const configPath = path.join(fixture.root, '.lcim', 'project.json');
+  const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  cfg.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  fs.writeFileSync(configPath, `${JSON.stringify(cfg, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: fixture.root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.disposition, 'SEMANTICALLY_ACCEPTED');
   assert.equal(semanticCalls, 2);
   assert.ok(result.routeDecisions.some((decision) => decision.decision === 'ROUTE_SOL_DIAGNOSE'));
-  assert.equal(result.finalSummary.invocations, 3, 'local worker + external SOL + local repair worker');
+  assert.equal(result.finalSummary.invocations, 3, 'local worker + codex SOL + local repair worker');
   assert.equal(result.finalSummary.starts, 3);
   assert.equal(result.finalSummary.completions, 3);
   assert.equal(result.finalSummary.assessments, 3);
 
-  // R3: the LOCAL worker ran in its own boundary with network DENY_ALL and
-  // NO broker; the SOL invocation got a NEW boundary pinned to a NEW broker
-  // endpoint. No boundary was widened and no future endpoint was pre-planned
-  // into the worker boundary.
-  assert.equal(result.boundaryEvidencePaths.length, 3, 'one fresh boundary per invocation');
+  // The LOCAL worker ran in its own boundary with network DENY_ALL and NO
+  // broker; the codex SOL role runs controller-side (no broker, no boundary
+  // network surface at all); the repair worker is local DENY_ALL again.
+  assert.equal(result.boundaryEvidencePaths.length, 2, 'only the two local worker invocations created boundaries');
   const boundaries = result.boundaryEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
-  const workerBoundaries = boundaries.filter((evidence) => evidence.network.mode === 'DENY_ALL');
-  const solBoundaries = boundaries.filter((evidence) => evidence.network.mode === 'BROKER_ONLY');
-  assert.equal(workerBoundaries.length, 2, 'both local worker invocations used DENY_ALL boundaries');
-  assert.equal(solBoundaries.length, 1, 'the SOL invocation used a BROKER_ONLY boundary');
-  assert.ok(solBoundaries.every((evidence) => evidence.network.brokerReachable === true));
-  assert.ok(solBoundaries.every((evidence) => evidence.network.otherLoopbackBlocked === true));
+  assert.ok(boundaries.every((evidence) => evidence.network.mode === 'DENY_ALL'), 'local worker boundaries stay DENY_ALL');
+  assert.equal(result.brokerEvidencePaths.length, 0, 'the codex SOL route never creates a broker listener');
 
-  // SOL completed through the HTTPS fake upstream, bound to the compiled ask,
-  // via exactly ONE fresh SOL-only broker.
-  assert.equal(sol.requests.length, 1);
-  assert.equal(sol.requests[0].model, 'sol-xhigh');
-  assert.equal(sol.requests[0].auth, 'Bearer s10-sol-test-key-0123456789abcdef');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
-
-  assert.equal(result.brokerEvidencePaths.length, 1, 'only the SOL invocation created a broker listener');
-  const brokerEvidence = JSON.parse(fs.readFileSync(result.brokerEvidencePaths[0], 'utf8'));
-  assert.equal(brokerEvidence.byModel['sol-xhigh']?.requests, 1);
-  assert.equal(brokerEvidence.byModel['deepseek-v4-flash'], undefined, 'the local worker registered no DeepSeek route');
-  assert.equal(brokerEvidence.invocationsRegistered, 1, 'only the SOL invocation registered a capability');
-  assert.equal(brokerEvidence.invocationsRevoked, 1, 'the SOL capability was revoked when the SOL invocation ended');
-  assert.ok(brokerEvidence.port > 0, 'the SOL broker endpoint is recorded per invocation');
+  // The SOL leg completed through the controller-side codex transport,
+  // bound to the compiled ask, with the strict transport evidence.
+  assert.equal(result.solTransportEvidencePaths.length, 2);
+  const evidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths[0], 'utf8'));
+  assert.equal(evidence.phase, 'TRANSPORT_PROOF');
+  assert.equal(evidence.transportProofs.gatePassed, true);
+  const semanticEvidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths.find((file) => file.endsWith('.semantic.json')), 'utf8'));
+  assert.equal(semanticEvidence.finalAcceptance, true);
 });
 
 test('SOL-S10-001/R2-J: HTTPS certificate verification is preserved; untrusted upstream fails closed', async (t) => {

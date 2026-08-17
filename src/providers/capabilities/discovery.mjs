@@ -39,6 +39,8 @@ import {
   MIN_REASONING_LEVEL,
   REASONING_LEVELS,
   SOL_ROLES,
+  CODEX_SOL_MODEL,
+  CLASSIC_SOL_MODEL,
 } from './metadata.mjs';
 
 function assertPlainConfig(config) {
@@ -162,48 +164,112 @@ export function resolveImplementationModel(config = {}) {
   }
 }
 
-/**
- * Exact SOL route discovery (requirement: every automatic SOL routing
- * decision must first resolve exact sol-xhigh availability/capability).
- *
- * Resolves `sol-xhigh` through exact discovery and verifies, for the given
- * role, all of: provider === 'sol', model === sol-xhigh, XHIGH reasoning
- * capability, and the role itself. Anything else throws
- * `ProviderDiscoveryError` — the policy then fails closed with the
- * no-substitute / provider-unavailable semantics. Never silently substitutes
- * another model and never downgrades reasoning.
- *
- * @param {string} role - one of SOL_ROLES
- * @param {object} config - discovery config (must configure endpoint 'sol-xhigh')
- * @returns {Readonly<object>} frozen spec + role
- */
-export function discoverSolRoute(role, config = {}) {
+function configuredEndpoint(config, modelKey) {
+  const endpoint = config?.endpoints?.[modelKey];
+  return endpoint === null || endpoint === undefined ? null : endpoint;
+}
+
+function assertSolRole(role) {
   if (!SOL_ROLES.includes(role)) {
     throw new ProviderDiscoveryError(
       `unknown SOL role ${JSON.stringify(role)} (supported: ${SOL_ROLES.join(', ')})`,
       { role, reason: 'SOL_ROLE_UNKNOWN' },
     );
   }
-  const spec = discoverModel('sol-xhigh', config);
-  if (spec.provider !== 'sol') {
+}
+
+function assertSolSpec(spec, modelKey, role, expectedProvider) {
+  if (spec.provider !== expectedProvider) {
     throw new ProviderDiscoveryError(
-      `sol-xhigh must resolve on provider 'sol', got ${JSON.stringify(spec.provider)}`,
-      { modelKey: 'sol-xhigh', reason: 'SOL_PROVIDER_MISMATCH' },
+      `${modelKey} must resolve on provider ${JSON.stringify(expectedProvider)}, got ${JSON.stringify(spec.provider)}`,
+      { modelKey, reason: 'SOL_PROVIDER_MISMATCH' },
     );
   }
   if (!spec.roles.includes(role)) {
     throw new ProviderDiscoveryError(
-      `sol-xhigh lacks capability for role ${role} (roles: ${spec.roles.join(', ')})`,
-      { modelKey: 'sol-xhigh', role, reason: 'SOL_ROLE_UNAVAILABLE' },
+      `${modelKey} lacks capability for role ${role} (roles: ${spec.roles.join(', ')})`,
+      { modelKey, role, reason: 'SOL_ROLE_UNAVAILABLE' },
     );
   }
   if (!spec.supportedReasoning.includes('XHIGH')) {
     throw new ProviderDiscoveryError(
-      'sol-xhigh must support XHIGH reasoning (no downgrade)',
-      { modelKey: 'sol-xhigh', reason: 'SOL_REASONING_UNAVAILABLE' },
+      `${modelKey} must support XHIGH reasoning (no downgrade)`,
+      { modelKey, reason: 'SOL_REASONING_UNAVAILABLE' },
     );
   }
+}
+
+/**
+ * Exact classic SOL route discovery — retained ONLY as immutable 2.0.0
+ * historical semantics for validating old 2.0 evidence records. It is
+ * NEVER a current-production routing channel: 2.1 routing is Codex-only
+ * (`resolveSolChannel` fails closed when the classic endpoint is
+ * configured, so `decideRoute` can never reach this primitive).
+ */
+export function discoverSolRoute(role, config = {}) {
+  assertSolRole(role);
+  const spec = discoverModel(CLASSIC_SOL_MODEL, config);
+  assertSolSpec(spec, CLASSIC_SOL_MODEL, role, 'sol');
   return Object.freeze({ ...spec, role });
+}
+
+/**
+ * Exact GPT-5.6 Sol codex route discovery (V2.0.1): the automatic SOL
+ * decision engine through Pi's native `openai-codex` provider. Exact and
+ * FAIL-CLOSED like the classic route:
+ *
+ * - a configured endpoint for `gpt-5.6-sol` is required;
+ * - provider channel must be 'pi' (the Pi CLI transport);
+ * - model must be `gpt-5.6-sol`; XHIGH reasoning and the role are
+ *   required;
+ * - anything else throws `ProviderDiscoveryError` — the policy then fails
+ *   closed (no silent substitute, no downgrade).
+ *
+ * The OAuth credential availability itself is a controller-owned runtime
+ * fact checked separately by `assertCodexOAuthAvailable`
+ * (src/providers/oauth.mjs) — never a discovery/config concern.
+ *
+ * @param {string} role - one of SOL_ROLES
+ * @param {object} config - discovery config (must configure endpoint 'gpt-5.6-sol')
+ * @returns {Readonly<object>} frozen spec + role
+ */
+export function discoverSolCodexRoute(role, config = {}) {
+  assertSolRole(role);
+  const spec = discoverModel(CODEX_SOL_MODEL, config);
+  assertSolSpec(spec, CODEX_SOL_MODEL, role, 'pi');
+  return Object.freeze({ ...spec, role });
+}
+
+/**
+ * Deterministic SOL channel resolution (V2.0.1, fifth-review repair).
+ * CURRENT production routing is CODEX-ONLY:
+ *
+ * - only `gpt-5.6-sol` endpoint configured -> 'codex' (provider 'pi');
+ * - the classic `sol-xhigh` endpoint configured (alone or with codex)
+ *   -> throws `ProviderDiscoveryError` (reason
+ *   'SOL_CHANNEL_CLASSIC_NO_AUTHORITY') — the classic channel has no
+ *   production SOL authority in 2.1; routing fails closed and the
+ *   operator must remove the legacy endpoint;
+ * - neither -> null (policy fails closed with PROVIDER_UNAVAILABLE).
+ *
+ * The classic route is retained ONLY as immutable 2.0.0 historical
+ * semantics (`discoverSolRoute` below stays available for validating old
+ * 2.0 records); it is never a current-production routing channel.
+ *
+ * @param {object} config - discovery config (endpoints map)
+ * @returns {'codex'|null}
+ */
+export function resolveSolChannel(config = {}) {
+  const classic = configuredEndpoint(config, CLASSIC_SOL_MODEL);
+  const codex = configuredEndpoint(config, CODEX_SOL_MODEL);
+  if (classic !== null) {
+    throw new ProviderDiscoveryError(
+      `endpoints.${CLASSIC_SOL_MODEL} has no production SOL authority in 2.1 (classic sol-xhigh cannot bypass the strict openai-codex transport gate); remove the legacy endpoint and configure endpoints.${CODEX_SOL_MODEL} instead — routing fails closed`,
+      { reason: 'SOL_CHANNEL_CLASSIC_NO_AUTHORITY' },
+    );
+  }
+  if (codex !== null) return 'codex';
+  return null;
 }
 
 /**

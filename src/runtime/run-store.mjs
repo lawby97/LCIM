@@ -264,12 +264,25 @@ export class RunStore {
    * reconciled (ORPHANED/SUPERSEDED); otherwise the run is marked
    * INCOMPLETE_LEDGER. All ledger evidence is preserved — nothing is
    * deleted, rewritten, or repaired.
+   *
+   * Fifth-review rule: the terminal sweep and the run.json terminal write
+   * share ONE serialization boundary — the run-dir lock, wrapped in the
+   * controller's authoritative SOL transport run lock — so a new marked
+   * transport surface can never appear between the sweep and the terminal
+   * transition (transport creation holds the same locks and requires the
+   * authoritative run.json to still be OPEN). RunStore terminal APIs reject
+   * caller process inspection and always use the canonical process table.
    * @returns {{ lifecycleState: 'COMPLETED'|'INCOMPLETE_LEDGER', finalSummary: object }}
    */
-  async finalize() {
+  async finalize(options = {}) {
+    if (options === null || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).length > 0) {
+      throw new ConfigError('RunStore.finalize does not accept caller process inspection; canonical production inspection is mandatory');
+    }
     this.assertWritable();
-    return withRunDirLock(this.runDir, async () => {
+    const { withSolTransportRunLock } = await import('../controller/sol-transport.mjs');
+    return withSolTransportRunLock(this.runDir, async () => {
       this._assertAuthoritativeOpen();
+      await this._assertTerminalSolTransportClean();
       const parsed = readJsonlFile(this.ledger.eventsPath);
       if (parsed.errors.length > 0) {
         throw new LedgerIntegrityError('ledger cannot be finalized: parse errors', { errors: parsed.errors });
@@ -301,13 +314,18 @@ export class RunStore {
   }
 
   /** Explicitly abort the run (controller stop). Appends are refused after. */
-  async abort({ note } = {}) {
+  async abort(options = {}) {
+    if (options === null || typeof options !== 'object' || Array.isArray(options)) throw new ConfigError('RunStore.abort options must be an object');
+    for (const key of Object.keys(options)) if (key !== 'note') throw new ConfigError('RunStore.abort does not accept caller process inspection; canonical production inspection is mandatory');
+    const { note } = options;
     this.assertWritable();
     if (note !== undefined && (typeof note !== 'string' || note.length === 0 || note.length > MAX_NOTE)) {
       throw new ConfigError(`note must be a bounded non-empty string (max ${MAX_NOTE} chars)`);
     }
-    return withRunDirLock(this.runDir, async () => {
+    const { withSolTransportRunLock } = await import('../controller/sol-transport.mjs');
+    return withSolTransportRunLock(this.runDir, async () => {
       this._assertAuthoritativeOpen();
+      await this._assertTerminalSolTransportClean();
       const record = stampSprintRecord('lcim.run', {
         ...this.baseRecordFields(),
         lifecycleState: 'ABORTED',
@@ -322,6 +340,31 @@ export class RunStore {
       await this.close();
       return { lifecycleState: 'ABORTED' };
     });
+  }
+
+  /**
+   * Controller-wide terminalization guard. Kept here as well as the
+   * orchestrator wrappers so direct public RunStore.finalize()/abort() calls
+   * cannot bypass marker-bound Pi/OAuth recovery. Production always uses
+   * canonical process inspection; caller-supplied process tables are not
+   * accepted by this API.
+   */
+  async _assertTerminalSolTransportClean() {
+    let sweep;
+    try {
+      const { sweepRunSolTransportSurfaces } = await import('../controller/sol-transport.mjs');
+      sweep = await sweepRunSolTransportSurfaces(this.runDir);
+    } catch (error) {
+      throw new RunStoreError('SOL transport terminal cleanup could not be proven; refusing run terminalization', {
+        cause: error?.message ?? String(error),
+      });
+    }
+    if (!sweep.ok) {
+      throw new RunStoreError('SOL transport terminal cleanup could not be proven; refusing run terminalization', {
+        failures: sweep.failures,
+      });
+    }
+    return sweep;
   }
 
   /** Full deterministic validation of the run store. */

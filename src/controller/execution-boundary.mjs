@@ -505,8 +505,17 @@ export function createWorkerExecutionBoundary({
   credentialHome = null,
   sandboxExecutable = SEATBELT_EXECUTABLE,
   broker = null,
+  codexOAuth = false,
   processCreation = DEFAULT_PROCESS_CREATION,
 } = {}) {
+  if (codexOAuth) {
+    // V2.0.1 security repair: the CODEX_OAUTH worker-boundary mode was
+    // REMOVED — the GPT-5.6 Sol openai-codex transport is a trusted
+    // CONTROLLER-SIDE Pi client (src/controller/sol-transport.mjs), never
+    // a sandboxed model process with broad networking. Stale callers must
+    // fail loudly instead of silently obtaining a 2.0.0 boundary.
+    throw new ConfigError('the CODEX_OAUTH worker-boundary mode was removed in the V2.0.1 security repair; the GPT-5.6 Sol transport runs controller-side (see src/controller/sol-transport.mjs) and no execution boundary may place Pi inside the model sandbox');
+  }
   if (process.platform !== 'darwin') {
     throw new ExecutionBoundaryError(`no verified structural worker sandbox is implemented for platform ${process.platform}; refusing to spawn`, { platform: process.platform });
   }

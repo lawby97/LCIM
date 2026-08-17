@@ -21,14 +21,14 @@ function runCli(...args) {
 test('lcim --version exits 0 and reports the V2 stable-release version', () => {
   const r = runCli('--version');
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /^LCIM 2\.0\.0/);
+  assert.match(r.stdout, /^LCIM 2\.0\.1/);
   assert.match(r.stdout, /\(git [0-9a-f]{7}\)/);
 });
 
 test('lcim -v behaves like --version', () => {
   const r = runCli('-v');
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /^LCIM 2\.0\.0/);
+  assert.match(r.stdout, /^LCIM 2\.0\.1/);
 });
 
 test('lcim --help exits 0 and prints usage', () => {

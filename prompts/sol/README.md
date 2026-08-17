@@ -16,6 +16,7 @@ evidence budget.
 | `diagnose.md` | `SOL_DIAGNOSE` | Why does this ONE acceptance criterion fail? |
 | `final-review.md` | `SOL_FINAL_REVIEW` | Do the named high-risk invariants hold? |
 | `recheck.md` | `SOL_RECHECK` | Is the prior finding resolved by the delta evidence? |
+| `system.system.md` | all codex-channel calls | Controller-pinned system prompt for the GPT-5.6 Sol transport (V2.0.1); loaded by `src/controller/sol-transport.mjs` and passed via Pi's `--system-prompt`. A repository can never replace it. |
 
 ## Policy (locked by Sprint 06)
 

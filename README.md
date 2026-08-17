@@ -85,6 +85,33 @@ SOL is used only for a compiled, bounded decision contract with one question,
 explicit pass/fail conditions, bounded evidence, and an exact response shape.
 The four roles are CONTRACT_CHECK, DIAGNOSE, RECHECK, and FINAL_REVIEW.
 
+### Automatic SOL channel (V2.0.1)
+
+Automatic SOL routing is CODEX-ONLY (fifth-review rule): configure
+`endpoints["gpt-5.6-sol"]` in `.lcim/project.json` (GPT-5.6 Sol at XHIGH
+through Pi's native `openai-codex` provider, using Pi's existing OAuth
+store `~/.pi/agent/auth.json` — LCIM runs Pi as a trusted controller-side
+transport with a run-scoped isolated agent directory containing only the
+openai-codex OAuth entry (mode 0600, removed at run end); `pi /login`
+must have an active ChatGPT Plus/Pro Codex session). Every SOL role
+(CONTRACT_CHECK, DIAGNOSE, FINAL_REVIEW, RECHECK) routes through the
+SAME strict gate: exactly openai-codex / gpt-5.6-sol / XHIGH.
+
+The classic `sol-xhigh` channel has NO production authority in 2.1
+(configuring `endpoints["sol-xhigh"]` fails closed with
+`SOL_CHANNEL_CLASSIC_NO_AUTHORITY`); it survives only as immutable 2.0.0
+historical semantics for old-record validation. Route-decision records
+use the immutable schema version 2.1.0 and feed the same Sprint-06
+ask/response/repair pipeline. The real Pi auth store is READ-ONLY input
+authority: LCIM copies the provider-scoped `openai-codex` entry into a
+run-scoped isolated surface, reuses it for every SOL call of the run
+(within-run refresh continuity), deletes it at cleanup, and NEVER writes
+a refreshed token back to `~/.pi/agent/auth.json`; a later run with a
+missing/stale credential fails closed with an explicit
+re-authentication-required instruction (`pi /login`). See
+[`docs/v2-codex-sol-oauth.md`](docs/v2-codex-sol-oauth.md) for the full
+controller-side transport pins and fail-closed matrix.
+
 ## Candidates and worktrees
 
 LCIM produces `REVIEWABLE_CANDIDATE` records only. It never automatically

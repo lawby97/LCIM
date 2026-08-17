@@ -21,12 +21,37 @@ import { compileSemanticContract } from '../contracts/compiler.mjs';
 import { renderSemanticContract } from '../contracts/render.mjs';
 import { compileSolAsk } from '../sol/ask-compiler/compiler.mjs';
 import { compileSolResponse } from '../sol/ask-compiler/response.mjs';
+import { adjacentDefectFindingId } from '../sol/contracts/ids.mjs';
 import { compileRepairTicket } from '../sol/ask-compiler/repair-ticket.mjs';
+import { buildRepairContract } from '../contracts/repair.mjs';
 import { assessHandoff, recordPatchObservation, summarizeForReport } from '../handoff/assessment.mjs';
 import { preserveRawResponse } from '../handoff/preserve.mjs';
-import { parseProviderJson, buildWorkerPrompt, invokeBoundedProvider, usesExternalProvider, withLocalRouteEndpoints } from './provider.mjs';
+import { parseProviderJson, buildWorkerPrompt, invokeBoundedProvider, usesExternalProvider, withLocalRouteEndpoints, isCodexSolModel } from './provider.mjs';
 import { authorizeWorkerExecutionBoundary, persistBoundaryEvidence, resetWorkerScratch, runConstrainedProcess } from './execution-boundary.mjs';
 import { persistBrokerEvidence, startProviderBroker } from './provider-broker.mjs';
+import {
+  TRANSPORT_CREDENTIAL_LEAK,
+  SOL_COMMAND_MASQUERADE,
+  SOL_TRANSPORT_CLEANUP_FAILED,
+  acquireCodexSolStore,
+  assessEvidencePersistenceFailure,
+  assessSolTransportResult,
+  collectCanonicalStringValues,
+  inspectSolTransportSurface,
+  loadSolSystemPrompt,
+  persistSolSemanticAcceptance,
+  persistSolTransportEvidence,
+  prepareCodexSolInvocation,
+  reconcileStaleSolTransportSurfaces,
+  resolvePiExecutable,
+  runSolPiProcess,
+  sanitizeArgvForEvidence,
+  scanForCredentialLeakDetailed,
+  SOL_REVIEW_AUTHORITY,
+  sweepRunSolTransportSurfaces,
+} from './sol-transport.mjs';
+import { claimSolTestProcessTable, consumeSolTestSeam, markSolFixtureRoutingConfig, solTestSeamHasProcessTable } from './test-seams.mjs';
+import { assertPlainOptions, ownDataProperty, snapshotEnvironment, snapshotFrozenJson, snapshotJson, snapshotStringArgv } from './input-snapshot.mjs';
 import { createProcessSupervisor, generateInvocationMarker, persistProcessLifetimeEvidence } from './process-supervisor.mjs';
 import { runValidationsOnCopy } from './validation-runner.mjs';
 import {
@@ -78,11 +103,62 @@ function canonicalRejectionCode(code) {
 }
 
 function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+  return snapshotJson(value, 'controller-owned clone');
 }
+
+// SOL-S11-004/006: fail-closed transport identities that stay inside the
+// frozen Sprint-00 ledger taxonomy (TRANSPORT_MALFORMED); the distinct
+// identity is carried by the controller event, transport evidence, and the
+// run-level error, never by the ledger rejectionCode.
+const TRANSPORT_TAXONOMY_CODES = new Set([
+  TRANSPORT_CREDENTIAL_LEAK,
+  'SOL_TRANSPORT_REJECTED',
+  'SOL_TRANSPORT_SURFACE_VIOLATION',
+  'SOL_OAUTH_RELOAD_FAILED',
+  SOL_TRANSPORT_CLEANUP_FAILED,
+  'SOL_TRANSPORT_EVIDENCE_FAILED',
+  'SOL_CREDENTIAL_SCAN_INCOMPLETE',
+  'SOL_RESPONSE_TOO_LARGE',
+  'CODEX_OAUTH_UNAVAILABLE',
+]);
 
 function now() {
   return new Date().toISOString();
+}
+
+function canonicalizeWithExistingAncestor(target) {
+  const suffix = [];
+  let cursor = target;
+  for (;;) {
+    try {
+      return path.join(fs.realpathSync(cursor), ...suffix);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return target;
+      const parent = path.dirname(cursor);
+      if (parent === cursor) return target;
+      suffix.unshift(path.basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
+function assertPiAgentOverrideOutsideTarget(repoDir, environment) {
+  const configured = environment?.PI_CODING_AGENT_DIR;
+  if (typeof configured !== 'string' || configured.length === 0) return;
+  const target = path.resolve(configured);
+  const canonicalRepo = fs.realpathSync(repoDir);
+  // Canonicalize the nearest existing ancestor as well as existing paths.
+  // On macOS /var and /private/var alias each other; a missing target child
+  // must not bypass the target-tree check merely because it lacks a direct
+  // realpath yet.
+  const canonicalTarget = canonicalizeWithExistingAncestor(target);
+  const relative = path.relative(canonicalRepo, canonicalTarget);
+  const lexicalRelative = path.relative(path.resolve(repoDir), target);
+  const insideCanonical = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  const insideLexical = lexicalRelative === '' || (!lexicalRelative.startsWith('..') && !path.isAbsolute(lexicalRelative));
+  if (insideCanonical || insideLexical) {
+    throw new ConfigError('PI_CODING_AGENT_DIR must not point inside the target repository; target-controlled Pi auth/config surfaces are refused');
+  }
 }
 
 function publicErrorCode(error, fallback = 'CONTROLLER_FAILED') {
@@ -101,7 +177,26 @@ function staticReason(error, fallback) {
   if (code === 'SCHEMA_MISMATCH') return 'provider response did not satisfy its reviewed schema';
   if (code === 'SOL_ASK_INVALID') return 'compiled SOL decision contract was invalid';
   if (code === 'PROCESS_TREE_QUIESCENCE_FAILED') return 'model-controlled descendant processes remained alive; invocation process-tree quiescence could not be proven';
+  if (code === 'TRANSPORT_CREDENTIAL_LEAK') return 'provider output contained credential material and was rejected; invocation fails closed';
+  if (code === 'SOL_TRANSPORT_REJECTED') return 'the SOL transport acceptance gate failed (status, error, timeout, completion, truncation, or credential checks)';
+  if (code === 'SOL_TRANSPORT_SURFACE_VIOLATION') return 'the isolated Pi agent surface contained unexpected authority-bearing files after the invocation';
+  if (code === 'SOL_OAUTH_RELOAD_FAILED') return 'the isolated Pi auth store could not be reloaded after the invocation; refreshed credential state cannot be verified';
+  if (code === SOL_TRANSPORT_CLEANUP_FAILED) return 'the controller-owned SOL transport surface could not be removed; cleanup failure fails closed';
+  if (code === 'SOL_TRANSPORT_RECONCILE_FAILED') return 'stale controller-owned SOL transport surfaces could not be reconciled at startup';
+  if (code === 'SOL_TEST_SEAM_NON_AUTHORITATIVE') return 'the run used controller-internal test seams and cannot grant production review authority';
+  if (code === 'SOL_CLASSIC_NO_AUTHORITY') return 'the classic sol-xhigh SOL execution branch has no production authority in 2.1; every SOL role runs through the strict openai-codex transport gate';
+  if (code === 'SOL_TRANSPORT_EVIDENCE_FAILED') return 'authoritative SOL transport proof evidence could not be persisted; the transport fails closed';
+  if (code === 'SOL_CREDENTIAL_SCAN_INCOMPLETE') return 'the credential analysis hit a search/view bound and is INCOMPLETE; the transport fails closed instead of claiming not-detected';
+  if (code === 'CODEX_OAUTH_UNAVAILABLE') return 'RE-AUTHENTICATION REQUIRED: the read-only real openai-codex source credential could not authenticate or refresh; LCIM did not modify it. Run `pi /login` (ChatGPT Plus/Pro Codex) and retry';
   return `controller validation failed (${code})`;
+}
+
+function codexReauthenticationRequired(providerResult) {
+  if (providerResult?.status === 0 && providerResult?.error === null) return false;
+  const text = `${providerResult?.error ?? ''}\n${providerResult?.stderr ?? ''}\n${providerResult?.stdout ?? ''}`.toLowerCase();
+  return /openai codex token (?:refresh|exchange).*(?:fail|error)/.test(text)
+    || /(?:invalid_grant|invalid refresh token|refresh token.*(?:invalid|expired|revoked))/.test(text)
+    || /(?:401|unauthorized|authentication failed|not authenticated|oauth credential.*(?:invalid|expired))/.test(text);
 }
 
 function defaultSemanticContract(projectKey, allowedWritePaths) {
@@ -158,7 +253,11 @@ function effectiveRoutingConfig(projectConfig, options) {
   });
   if (options.workerCommand !== undefined) config.worker.command = clone(options.workerCommand);
   if (options.solCommand !== undefined) config.sol.command = clone(options.solCommand);
-  return config;
+  // Never serialize seam state into ordinary project/configuration data.
+  // A WeakSet marker is attached only to this controller-created object.
+  const frozen = snapshotFrozenJson(config, 'effective routing configuration');
+  if (options.solCommand !== undefined) markSolFixtureRoutingConfig(frozen, options.solTestAuthority);
+  return frozen;
 }
 
 function sideEffectSpecs(contract) {
@@ -219,7 +318,7 @@ function createControllerWorkUnit({ runId, workUnitId, expectedBaseSha, projectC
   };
 }
 
-function routeContext({ workUnitId, runId, state, contract, budget, routingConfig, resultAccepted, latestRejection, failureHistory, repairsDispatched, solDiagnosis, solReview, solFindings, stuckEvidence, evidenceRefs }) {
+function routeContext({ workUnitId, runId, state, contract, budget, routingConfig, environment, resultAccepted, latestRejection, failureHistory, repairsDispatched, solDiagnosis, solReview, solFindings, activeFindingId, stuckEvidence, evidenceRefs }) {
   return {
     workUnitId,
     runId,
@@ -235,6 +334,8 @@ function routeContext({ workUnitId, runId, state, contract, budget, routingConfi
     stuckEvidence,
     budget,
     config: routingConfig,
+    environment,
+    activeFindingId,
     evidenceRefs,
   };
 }
@@ -260,14 +361,14 @@ function makeSolAsk({ callType, contract, patchRecord, evidenceRefs, prior = nul
         ? `Why does acceptance criterion ${requirements[0] ?? 'the declared controller criterion'} fail in this work unit?`
         : callType === 'SOL_FINAL_REVIEW'
           ? `Does the candidate satisfy every named high-risk invariant in the locked checklist?`
-          : `Is the prior finding resolved by the new delta evidence without reopening unrelated invariants?`,
+          : `Is the exact prior finding resolved by the new delta evidence?`,
     whyNeeded: callType === 'SOL_CONTRACT_CHECK'
       ? 'The compiled contract contains unresolved high-risk semantics and implementation authority is blocked.'
       : callType === 'SOL_DIAGNOSE'
         ? 'The controller observed a bounded rejection and needs one falsifiable diagnosis before a targeted repair.'
         : callType === 'SOL_FINAL_REVIEW'
           ? 'A high-risk candidate requires a named final-review decision before it can be reviewably advanced.'
-          : 'A prior bounded finding survived one repair and only delta evidence may be considered.',
+          : 'One exact prior finding received one bounded repair; only its new delta evidence may be considered.',
     contractRefs: contractRefs(contract),
     establishedFacts: contract.factsEstablished.slice(0, 8),
     evidence: callType === 'SOL_DIAGNOSE' || callType === 'SOL_RECHECK' ? [] : evidence,
@@ -284,7 +385,7 @@ function makeSolAsk({ callType, contract, patchRecord, evidenceRefs, prior = nul
         ? 'Return CAUSE_UNRESOLVED when the single failure lacks a falsifiable bounded explanation.'
         : callType === 'SOL_FINAL_REVIEW'
           ? 'Return FAIL when a named invariant is not satisfied or a directly evidenced locked defect remains.'
-          : 'Return NOT_RESOLVED when the prior finding or a named neighboring invariant still fails.',
+          : 'Return NOT_RESOLVED when the exact prior finding still fails.',
     allowedScope: specs.length > 0 ? [...new Set(specs.map((item) => item.scope))] : ['mutation'],
     outOfScope: ['generic review', 'unbounded refactoring', 'controller disposition changes', 'publication or push'],
   };
@@ -333,6 +434,48 @@ function makeSolAsk({ callType, contract, patchRecord, evidenceRefs, prior = nul
   };
 }
 
+function createFinalReviewRepairBinding({ contract, finding, ask, response }) {
+  if (finding === null || typeof finding !== 'object' || typeof finding.findingId !== 'string') {
+    throw new ControllerError('a final-review repair requires one persisted finding identity', 'SOL_ASK_INVALID');
+  }
+  // A checklist finding binds through its named invariant; an accepted
+  // adjacentCriticalDefect binds through its lockedRequirementRef (the
+  // response validator guarantees it resolves to a declared bound
+  // requirement of the ask, i.e. a sideEffectId of the source contract).
+  const invariant = ask?.finalReview?.invariantChecklist?.find((item) => item.invariantId === finding.invariantRef);
+  const criterion = invariant?.lockedRequirementRef ?? finding.lockedRequirementRef ?? null;
+  const spec = contract?.negativeSideEffects?.find((item) => item.sideEffectId === criterion);
+  if (spec === undefined) {
+    throw new ControllerError('final-review finding does not bind a locked source acceptance criterion; targeted repair is refused', 'SOL_ASK_INVALID');
+  }
+  const repairId = `lcim_repair_${crypto.createHash('sha256').update(`${finding.findingId}:${ask.askId}:${response.responseId}`).digest('hex').slice(0, 32)}`;
+  const repairContract = buildRepairContract({
+    semanticContract: contract,
+    rejectedAcceptanceRefs: [criterion],
+    objective: `resolve final-review finding ${finding.findingId}`,
+    violation: `final-review finding ${finding.findingId}: ${finding.summary}`,
+    requiredBehavior: spec.requirement,
+    mustChange: [{ target: spec.scope, change: `Resolve the controller-recorded final-review finding ${finding.findingId} without widening scope.` }],
+    mustNotChange: [{ target: 'contract', reason: 'preserve the locked semantic contract and every unrelated invariant' }],
+    acceptanceTests: [],
+    verification: [{ method: 'controller validation and bound SOL_RECHECK', expectation: spec.requirement }],
+    findingRefs: [finding.findingId],
+    repairId,
+    createdAt: response.compiledAt,
+  });
+  const ticket = snapshotFrozenJson({
+    kind: 'lcim.final-review-repair-binding',
+    findingId: finding.findingId,
+    defectKind: finding.defectKind ?? 'FINDING',
+    repairId: repairContract.repairId,
+    sourceAskId: ask.askId,
+    sourceResponseId: response.responseId,
+    ...(finding.invariantRef === undefined || finding.invariantRef === null ? {} : { invariantRef: finding.invariantRef }),
+    ...(finding.lockedRequirementRef === undefined || finding.lockedRequirementRef === null ? {} : { lockedRequirementRef: finding.lockedRequirementRef }),
+  }, 'final-review repair binding');
+  return { repairContract, ticket };
+}
+
 function sanitizeSolInput(value) {
   // Do not repair or strip caller/model-derived response fields here. The
   // Sprint-06 response compiler must see them and reject them when present.
@@ -372,6 +515,7 @@ async function executeWorkerAttempt({
   usedBrokerPorts,
   processSupervisorOptions = null,
   evidencePaths = null,
+  environment = process.env,
 }) {
   const invocation = await runStore.startInvocation({
     workUnitId,
@@ -407,7 +551,7 @@ async function executeWorkerAttempt({
     // fresh boundary pinned to ONLY that port, and a fresh per-invocation Pi
     // config surface under <scratch>/<invocationId>/pi-agent.
     if (external) {
-      invocationBroker = await startProviderBroker({ avoidPorts: usedBrokerPorts });
+      invocationBroker = await startProviderBroker({ avoidPorts: usedBrokerPorts, env: environment });
       usedBrokerPorts.add(invocationBroker.port);
     }
     const authorized = await authorizeInvocationBoundary({
@@ -445,6 +589,7 @@ async function executeWorkerAttempt({
         broker: invocationBroker,
         invocationId: invocation.invocationId,
         onSpawn: (info) => supervisor.begin(info.pid),
+        env: environment,
       });
     } catch (error) {
       providerResult = {
@@ -760,6 +905,12 @@ async function executeSolAttempt({
   usedBrokerPorts,
   processSupervisorOptions = null,
   evidencePaths = null,
+  solTransportOptions = null,
+  solTestAuthority = null,
+  solStoreRef = null,
+  environment = process.env,
+  systemPrompt = null,
+  forceNonAuthoritative = false,
 }) {
   const callType = routeCallType(route.decision);
   if (callType === null) throw new ControllerError('route did not name a SOL call type', 'SOL_ASK_INVALID');
@@ -774,50 +925,163 @@ async function executeSolAttempt({
     reasoningEffort: route.reasoningLevel ?? 'XHIGH',
   });
   const invocationMarker = generateInvocationMarker();
+  // V2.0.1: the GPT-5.6 Sol codex route runs Pi as a TRUSTED
+  // CONTROLLER-SIDE provider client (never inside the model execution
+  // boundary), so the supervisor is PRIMARY for it; the classic SOL
+  // route keeps the no-descendant MODEL boundary and the supervisor is
+  // DEFENSE IN DEPTH / DIAGNOSTIC ONLY.
+  const codexRoute = isCodexSolModel(route.targetModel);
   const supervisor = createProcessSupervisor({
     invocationId: invocation.invocationId,
     workUnitId,
     invocationMarker,
-    // SOL-S10-001 R4: SOL runs under the same no-descendant MODEL boundary;
-    // the supervisor is DEFENSE IN DEPTH / DIAGNOSTIC ONLY.
-    childCreationStructurallyDenied: true,
+    childCreationStructurallyDenied: !codexRoute,
     ...(processSupervisorOptions ?? {}),
   });
   const external = usesExternalProvider({ projectConfig: project.config, role: 'SOL' });
+  if (codexRoute && !external) {
+    // A repository/CLI local command never substitutes the codex transport.
+    // The only codex fixture surface is piBin under opaque test authority.
+    throw new ControllerError(
+      'a configured sol.command cannot substitute the gpt-5.6-sol codex transport; production review requires controller-side pinned Pi',
+      SOL_COMMAND_MASQUERADE,
+      { model: route.targetModel },
+    );
+  }
+  if (!codexRoute) {
+    // Fifth-review rule: the classic sol-xhigh execution branch has NO
+    // production authority in 2.1. Every current 2.1 SOL role
+    // (CONTRACT_CHECK / DIAGNOSE / FINAL_REVIEW / RECHECK) runs through
+    // the SAME strict Codex transport gate (openai-codex / gpt-5.6-sol /
+    // XHIGH). Routing can no longer emit a classic SOL route; refusing it
+    // here keeps the weaker transport path structurally unreachable.
+    throw new ControllerError(
+      'the classic sol-xhigh SOL execution branch has no production authority in 2.1; every SOL role must run through the strict openai-codex / gpt-5.6-sol / XHIGH transport gate',
+      'SOL_CLASSIC_NO_AUTHORITY',
+      { model: route.targetModel },
+    );
+  }
   let invocationBroker = null;
   let boundary = null;
   let boundaryEvidencePath = null;
   let brokerEvidencePath = null;
   let processLifetimeEvidencePath = null;
+  let solStore = null;
+  let solTransport = null;
+  let solTransportEvidencePath = null;
   let providerResult = null;
   let quiescence = null;
   let completed = false;
-  try {
-    if (external) {
-      // SOL gets a FRESH broker endpoint on a port no prior invocation's
-      // boundary allows, a FRESH boundary whose ONLY network exception is
-      // that endpoint, and a FRESH Pi config surface. An old invocation's
-      // surviving process structurally cannot reach this endpoint.
-      invocationBroker = await startProviderBroker({ avoidPorts: usedBrokerPorts });
-      usedBrokerPorts.add(invocationBroker.port);
+  // Post-exit observed facts (SOL-S11-005): the transport result is never
+  // trusted from the runner alone — everything below is observed after
+  // exit+quiescence and fails closed on any anomaly.
+  let leakDetected = false;
+  let leakChannel = null;
+  let rawScanState = null;
+  let rawScanIncompleteReasons = null;
+  let canonicalScanState = null;
+  let canonicalScanIncompleteReasons = null;
+  let reloadResult = null;
+  let inspection = null;
+  let cleanupFailed = false;
+  let cleanupOutcome = null;
+  let transportErrorCode = null;
+  let transportProofsPassed = false;
+  let reviewAuthorityForAttempt = null;
+  let transportProofEvidence = null;
+  let parsed = null;
+  const cleanupInvocationTransport = async () => {
+    if (solTransport === null) return null;
+    if (solTransport.isRemoved()) return cleanupOutcome ?? { removed: true, observed: true, completed: true, verified: true, error: null };
+    try {
+      await solTransport.remove();
+      cleanupOutcome = { removed: true, observed: true, completed: true, verified: true, error: null };
+    } catch {
+      cleanupFailed = true;
+      cleanupOutcome = { removed: false, observed: false, completed: true, verified: false, error: 'cleanup-removal-failed' };
     }
-    const authorized = await authorizeInvocationBoundary({
-      runStore,
-      repoDir,
-      worktree,
-      workUnitId,
-      invocationId: invocation.invocationId,
-      invocationMarker,
-      credentialProbePaths,
-      sandboxExecutable,
-      broker: invocationBroker,
-      // SOL-S10-001 R4: SOL is a bounded decision engine with no process
-      // tools; it runs under the same structural no-descendant boundary.
-      processCreation: 'DENIED',
-    });
-    boundary = authorized.boundary;
-    boundaryEvidencePath = authorized.boundaryEvidencePath;
-    if (evidencePaths !== null) evidencePaths.boundary.push(boundaryEvidencePath);
+    return cleanupOutcome;
+  };
+  /**
+   * Sixth-review rule: the immutable exact-invocation transport proof is
+   * persisted AND fsynced before provider output is parsed. For an
+   * authoritative transport a persistence failure fails the invocation
+   * closed (never tolerated); non-authoritative seams tolerate evidence
+   * loss. Returns true when the record exists.
+   */
+  const persistTransportProofFailClosed = () => {
+    if (solTransport === null) return true;
+    try {
+      solTransportEvidencePath = persistSolTransportEvidence(runStore.runDir, invocation.invocationId, {
+        pi: solTransport.pi,
+        transport: solTransport,
+        store: solStore,
+        flags: [...(leakDetected ? ['credential-leak-rejected'] : []), ...(cleanupFailed ? ['cleanup-failed'] : [])],
+        leak: leakDetected,
+        leakChannel: leakDetected ? leakChannel : null,
+        inspection,
+        reload: reloadResult,
+        cleanup: cleanupOutcome,
+        argv: providerResult?.argvSanitized ?? null,
+        promptDigest: providerResult?.promptDigest ?? null,
+        systemPromptDigest: providerResult?.systemPromptDigest ?? null,
+        proofs: transportProofEvidence,
+      });
+      if (evidencePaths !== null) evidencePaths.solTransport.push(solTransportEvidencePath);
+      return true;
+    } catch (error) {
+      transportErrorCode = 'SOL_TRANSPORT_EVIDENCE_FAILED';
+      return false;
+    }
+  };
+  try {
+    if (codexRoute) {
+      // V2.0.1 controller-side transport: the openai-codex Pi process is
+      // a trusted controller-side provider client (like the broker). It
+      // runs from a controller-owned empty directory with a strict
+      // allowlist environment and a RUN-SCOPED isolated Pi agent dir
+      // containing ONLY the openai-codex OAuth entry (mode 0600), so Pi's
+      // OWN refresh/rotation persists across the run's SOL invocations
+      // (SOL-RECHECK continuity) under Pi's normal locking rules. The
+      // DeepSeek worker boundary is NOT involved: DeepSeek stays
+      // BROKER_ONLY and validation stays DENY_ALL exactly as in 2.0.0.
+      if (solStoreRef !== null && solStoreRef.current !== null) {
+        solStore = solStoreRef.current;
+      } else {
+        const pi = resolvePiExecutable({
+          piBin: solTransportOptions?.piBin ?? null,
+          env: environment,
+          testAuthority: solTestAuthority,
+        });
+        solStore = await acquireCodexSolStore({
+          runDir: runStore.runDir,
+          runId: runStore.runId,
+          invocationId: invocation.invocationId,
+          invocationMarker,
+          pi,
+          env: environment,
+          testAuthority: solTestAuthority,
+          forceNonAuthoritative,
+        });
+        if (solStoreRef !== null) solStoreRef.current = solStore;
+      }
+      solTransport = await prepareCodexSolInvocation({
+        runDir: runStore.runDir,
+        store: solStore,
+        invocationId: invocation.invocationId,
+        invocationMarker,
+        systemPrompt: systemPrompt ?? solTransportOptions?.systemPrompt ?? loadSolSystemPrompt(),
+        env: environment,
+      });
+    } else {
+      // Unreachable in 2.1: the classic SOL execution branch was removed
+      // above (SOL_CLASSIC_NO_AUTHORITY). Kept as a structural guard only.
+      throw new ControllerError(
+        'the classic sol-xhigh SOL execution branch has no production authority in 2.1',
+        'SOL_CLASSIC_NO_AUTHORITY',
+        { model: route.targetModel },
+      );
+    }
     try {
       providerResult = await invokeBoundedProvider({
         boundary,
@@ -830,6 +1094,9 @@ async function executeSolAttempt({
         broker: invocationBroker,
         invocationId: invocation.invocationId,
         onSpawn: (info) => supervisor.begin(info.pid),
+        solTransport,
+        solTestAuthority,
+        env: environment,
       });
     } catch (error) {
       providerResult = {
@@ -874,6 +1141,161 @@ async function executeSolAttempt({
         { remainingPids: quiescence.remainingPids },
       );
     }
+    if (solTransport !== null && quiescence.processAbsenceVerified === true) {
+      solTransport.confirmProcessAbsence();
+    }
+    // Strict ordering for controller-side Pi SOL:
+    // exit -> identity -> root/group/marker quiescence -> surface -> raw
+    // credential scan -> verified cleanup -> strict gate -> parse ->
+    // canonical-string scan -> compile/persist. No model text is parsed or
+    // interpreted before every external transport/security proof is exact.
+    if (solTransport !== null) {
+      const reviewAuthority = solStore.nonAuthoritative === true
+        ? SOL_REVIEW_AUTHORITY.TEST_SEAM_NON_AUTHORITATIVE
+        : SOL_REVIEW_AUTHORITY.AUTHORITATIVE;
+      reviewAuthorityForAttempt = reviewAuthority;
+      const reload = solStore.refreshFromDisk();
+      reloadResult = reload;
+      inspection = inspectSolTransportSurface({ store: solStore, transport: solTransport, pi: solStore.pi });
+      const rawLeak = scanForCredentialLeakDetailed(solTransport, {
+        stdout: providerResult.stdout ?? '',
+        stderr: providerResult.stderr ?? '',
+      });
+      rawScanState = rawLeak.scanState;
+      rawScanIncompleteReasons = rawLeak.incompleteReasons;
+      leakDetected = rawLeak.detected;
+      leakChannel = rawLeak.detected ? rawLeak.channel : null;
+      if (leakDetected) solStore.markLeak();
+      // Invocation cleanup is itself a required positive proof and must
+      // complete before the raw model text is parsed.
+      await cleanupInvocationTransport();
+      const proof = {
+        status: providerResult.status,
+        error: providerResult.error,
+        timedOut: providerResult.timedOut,
+        truncated: providerResult.truncated,
+        processCompleted: providerResult.processCompleted,
+        identityVerifiedBeforeSpawn: providerResult.identityVerifiedBeforeSpawn,
+        identityVerifiedAfterExit: providerResult.identityVerifiedAfterExit,
+        processAbsenceVerified: quiescence.processAbsenceVerified === true,
+        quiescenceVerified: quiescence.quiescenceVerified === true,
+        surfaceVerified: inspection.ok === true,
+        // Sixth-review rule: an INCOMPLETE raw credential scan can never
+        // claim credentialScanPassed (fail closed).
+        credentialScanPassed: reload.ok === true && rawScanState === 'COMPLETE' && !leakDetected,
+        rawScanState,
+        rawScanIncompleteReasons,
+        cleanupVerified: cleanupOutcome?.verified === true,
+        reviewAuthority,
+      };
+      const gate = assessSolTransportResult(proof, {
+        allowNonAuthoritativeTestSeam: solStore.nonAuthoritative === true,
+      });
+      if (!gate.ok) {
+        transportErrorCode = leakDetected ? TRANSPORT_CREDENTIAL_LEAK
+          : !reload.ok ? 'SOL_OAUTH_RELOAD_FAILED'
+            : !inspection.ok ? 'SOL_TRANSPORT_SURFACE_VIOLATION'
+              : cleanupFailed ? SOL_TRANSPORT_CLEANUP_FAILED
+                : rawScanState === 'INCOMPLETE' ? 'SOL_CREDENTIAL_SCAN_INCOMPLETE'
+                  : codexReauthenticationRequired(providerResult) ? 'CODEX_OAUTH_UNAVAILABLE'
+                    : 'SOL_TRANSPORT_REJECTED';
+        // Fifth-review rule: the canonical (parsed-value) credential scan
+        // never ran, so no proof record may claim credentialScanPassed.
+        transportProofEvidence = { ...proof, credentialScanPassed: false, gatePassed: false, rawScanState, rawScanIncompleteReasons };
+        transportProofsPassed = false;
+        // Sixth-review rule: the immutable exact-invocation transport
+        // proof (a FAILED gate) is still persisted+fsynced now — before any
+        // parse (there is none on this path).
+        if (!persistTransportProofFailClosed()) {
+          throw new ControllerError(
+            'authoritative SOL transport proof evidence could not be persisted; the transport fails closed',
+            'SOL_TRANSPORT_EVIDENCE_FAILED',
+            {},
+          );
+        }
+      } else {
+        transportProofEvidence = { ...proof, gatePassed: gate.ok, rawScanState, rawScanIncompleteReasons };
+        transportProofsPassed = gate.ok;
+        // Sixth-review rule: the immutable exact-invocation transport
+        // proof is persisted AND fsynced BEFORE provider output is parsed.
+        // A crash during parsing can never lose the transport gate facts,
+        // and an evidence persistence failure fails the transport closed.
+        if (!persistTransportProofFailClosed()) {
+          throw new ControllerError(
+            'authoritative SOL transport proof evidence could not be persisted; the transport fails closed',
+            'SOL_TRANSPORT_EVIDENCE_FAILED',
+            {},
+          );
+        }
+        // Gate passed: only now may the controller parse model output. The
+        // post-parse scalar scan is an additional mandatory credential
+        // check before response compilation/persistence.
+        parsed = parseProviderJson(providerResult.stdout);
+        let canonicalScanCompleted = false;
+        let canonicalValues = [];
+        try {
+          canonicalValues = collectCanonicalStringValues(parsed?.value ?? null);
+          canonicalScanCompleted = true;
+        } catch (error) {
+          // Fifth-review rule: an INCOMPLETE canonical credential scan can
+          // never claim credentialScanPassed; the gate fails closed below
+          // and the persisted evidence records credentialScanPassed=false.
+          transportErrorCode = error?.code === 'SOL_RESPONSE_TOO_LARGE' ? 'SOL_RESPONSE_TOO_LARGE' : 'SOL_TRANSPORT_REJECTED';
+        }
+        // Re-assess after the parsed-scalar scan. The first gate guarded
+        // parsing itself; this second exact gate guards compilation and
+        // persistence with the complete raw+canonical credential proof.
+        const canonicalProof = { ...proof, credentialScanPassed: canonicalScanCompleted && canonicalScanState === 'COMPLETE' && !leakDetected };
+        if (canonicalScanCompleted) {
+          const canonicalLeak = scanForCredentialLeakDetailed(solTransport, {
+            stdout: providerResult.stdout ?? '',
+            stderr: providerResult.stderr ?? '',
+            values: canonicalValues,
+          });
+          canonicalScanState = canonicalLeak.scanState;
+          canonicalScanIncompleteReasons = canonicalLeak.incompleteReasons;
+          if (canonicalLeak.detected) {
+            leakDetected = true;
+            leakChannel = canonicalLeak.channel;
+            solStore.markLeak();
+          }
+          canonicalProof.credentialScanPassed = canonicalScanState === 'COMPLETE' && !leakDetected;
+        }
+        const canonicalGate = assessSolTransportResult(canonicalProof, {
+          allowNonAuthoritativeTestSeam: solStore.nonAuthoritative === true,
+        });
+        transportProofEvidence = { ...canonicalProof, gatePassed: canonicalGate.ok, rawScanState, rawScanIncompleteReasons, canonicalScanState, canonicalScanIncompleteReasons };
+        transportProofsPassed = canonicalGate.ok;
+        if (!canonicalGate.ok) {
+          transportErrorCode = leakDetected ? TRANSPORT_CREDENTIAL_LEAK
+            : (canonicalScanCompleted && canonicalScanState === 'INCOMPLETE') ? 'SOL_CREDENTIAL_SCAN_INCOMPLETE'
+              : (transportErrorCode ?? 'SOL_TRANSPORT_REJECTED');
+        }
+      }
+      if (transportErrorCode === TRANSPORT_CREDENTIAL_LEAK) {
+        // Never return raw credential-bearing bytes to later stages.
+        providerResult = {
+          ...providerResult,
+          status: null,
+          stdout: '',
+          stderr: '',
+          error: `provider output contained credential material and was rejected; invocation fails closed (${TRANSPORT_CREDENTIAL_LEAK})`,
+          credentialLeak: true,
+          leakChannel,
+        };
+      }
+    } else {
+      // Classic SOL remains on its existing broker/boundary transport. It
+      // still refuses malformed/timeout/incomplete results before parsing;
+      // the controller-side Pi proof profile above applies only to Codex.
+      const classicGate = providerResult.status === 0
+        && providerResult.error === null
+        && providerResult.timedOut === false
+        && providerResult.processCompleted === true
+        && providerResult.truncated !== true;
+      if (!classicGate) transportErrorCode = 'SOL_TRANSPORT_REJECTED';
+      else parsed = parseProviderJson(providerResult.stdout);
+    }
   } catch (error) {
     if (quiescence === null) {
       try {
@@ -889,6 +1311,9 @@ async function executeSolAttempt({
         }
       }
     }
+    if (solTransport !== null && quiescence?.quiescenceVerified === true) {
+      solTransport.confirmProcessAbsence();
+    }
     if (invocationBroker !== null) {
       try {
         if (brokerEvidencePath === null) {
@@ -899,6 +1324,31 @@ async function executeSolAttempt({
       }
       try {
         await invocationBroker.close();
+      } catch {
+        // The invocation failure remains primary.
+      }
+    }
+    // Cleanup happens before evidence: no record can claim success while a
+    // finally block has not yet positively observed removal.
+    await cleanupInvocationTransport();
+    if (solTransport !== null) {
+      try {
+        solTransportEvidencePath = persistSolTransportEvidence(runStore.runDir, invocation.invocationId, {
+          pi: solTransport.pi,
+          transport: solTransport,
+          store: solStore,
+          flags: [...(leakDetected ? ['credential-leak-rejected'] : []), ...(cleanupFailed ? ['cleanup-failed'] : [])],
+          leak: leakDetected,
+          leakChannel: leakDetected ? leakChannel : null,
+          inspection,
+          reload: reloadResult,
+          cleanup: cleanupOutcome,
+          argv: providerResult?.argvSanitized ?? null,
+          promptDigest: providerResult?.promptDigest ?? null,
+          systemPromptDigest: providerResult?.systemPromptDigest ?? null,
+          proofs: transportProofEvidence,
+        });
+        if (evidencePaths !== null) evidencePaths.solTransport.push(solTransportEvidencePath);
       } catch {
         // The invocation failure remains primary.
       }
@@ -916,19 +1366,34 @@ async function executeSolAttempt({
     }
     throw error;
   }
+  // Successful path: process absence was proven above, then cleanup must
+  // finish before any evidence/disposition can be recorded.
+  await cleanupInvocationTransport();
   const outcome = providerResult.timedOut ? 'TIMEOUT' : providerResult.error !== null || !providerResult.processCompleted ? 'TRANSPORT_ERROR' : providerResult.status === 0 ? 'SUCCESS' : 'FAILURE';
   await invocation.complete({ outcome, errorCode: outcome === 'SUCCESS' ? undefined : 'SOL_PROVIDER_FAILED' });
   completed = true;
-  const rawRef = persistProviderOutput(runStore.runDir, invocation.invocationId, providerResult.stdout);
-  // Wipe the scratch surface after quiescence so the SOL invocation's
-  // per-invocation Pi config/token never outlives its invocation.
-  resetWorkerScratch(boundary.scratchRoot);
-  const parsed = parseProviderJson(providerResult.stdout);
+  // Credential discipline (SOL-S11-003): raw Codex stdout/stderr is NEVER
+  // persisted as runtime evidence. Only the validated canonical SOL
+  // response artifact (compiled below, after every acceptance check) may
+  // be persisted; a credential leak or any failed gate persists nothing.
+  const rawRef = null;
+  // Wipe the worker scratch surface after quiescence so the classic SOL
+  // invocation's per-invocation Pi config/token never outlives its
+  // invocation (the codex transport removes its own surface in finally).
+  if (boundary !== null) {
+    resetWorkerScratch(boundary.scratchRoot);
+  }
   let response = null;
   let conversion = null;
   let errorCode = null;
-  if (providerResult.status !== 0 || !providerResult.processCompleted || parsed.error !== null) {
-    errorCode = parsed.error !== null ? 'TRANSPORT_MALFORMED' : 'SOL_ASK_INVALID';
+  if (transportErrorCode !== null) {
+    errorCode = transportErrorCode;
+  } else if (cleanupFailed) {
+    // SOL-S11-006: cleanup failure fails closed — the invocation cannot be
+    // ACCEPTED and can never produce REVIEW_APPROVED.
+    errorCode = SOL_TRANSPORT_CLEANUP_FAILED;
+  } else if (parsed === null || parsed.error !== null) {
+    errorCode = 'TRANSPORT_MALFORMED';
   } else {
     try {
       response = compileSolResponse(sanitizeSolInput(parsed.value), { ask, sources: [contract] });
@@ -941,11 +1406,56 @@ async function executeSolAttempt({
       errorCode = error?.code === 'SOL_ASK_INVALID' ? 'SOL_ASK_INVALID' : 'SCHEMA_MISMATCH';
     }
   }
-  const accepted = response !== null && errorCode === null;
+  let accepted = response !== null && errorCode === null && !cleanupFailed;
+  // Sixth-review rule: the SEMANTIC-ACCEPTANCE binding is persisted as a
+  // SEPARATE record only after successful parsing and SOL compilation,
+  // fsynced and bound to the immutable transport proof. No malformed or
+  // rejected output can create a semantic-acceptance record. Persistence
+  // failure fails every transport closed, including test seams.
+  let solSemanticEvidencePath = null;
+  if (solTransport !== null && response !== null && errorCode === null && accepted) {
+    try {
+      solSemanticEvidencePath = persistSolSemanticAcceptance(runStore.runDir, invocation.invocationId, {
+        store: solStore,
+        transportProofRef: solTransportEvidencePath,
+        askId: ask.askId,
+        responseId: response?.responseId ?? null,
+        callType,
+        verdict: response?.verdict ?? null,
+        errorCode,
+        finalAcceptance: accepted,
+        semanticAccepted: response !== null,
+        rawScanState,
+        rawScanIncompleteReasons,
+        canonicalScanState,
+        canonicalScanIncompleteReasons,
+        credentialScanPassed: transportProofEvidence?.credentialScanPassed ?? null,
+        leak: leakDetected,
+        leakChannel: leakDetected ? leakChannel : null,
+      });
+      if (evidencePaths !== null) evidencePaths.solTransport.push(solSemanticEvidencePath);
+    } catch (error) {
+      const evidenceFailCode = assessEvidencePersistenceFailure({ accepted });
+      if (evidenceFailCode !== null) {
+        errorCode = evidenceFailCode;
+        accepted = false;
+      }
+    }
+  }
+  // Sixth-review scope simplification: refreshed credentials stay inside
+  // the run-scoped isolated store (within-run continuity for SOL_RECHECK).
+  // There is NO write-back/reconciliation to the real Pi auth store — the
+  // real store is read-only input authority and no LCIM execution path
+  // mutates it.
   const refs = [...evidenceRefs, `sol-ask:${ask.askId}`];
   await invocation.assess({
     assessmentResult: accepted ? 'ACCEPTED' : 'REJECTED',
-    rejectionCode: accepted ? undefined : errorCode ?? 'SOL_ASK_INVALID',
+    // The shared ledger rejection taxonomy is frozen (Sprint-00): the
+    // distinct fail-closed identity for a credential leak and every other
+    // transport-level refusal is carried by the controller event, the
+    // transport evidence, and the run-level error — never by the ledger
+    // rejectionCode, which stays a taxonomy code.
+    rejectionCode: accepted ? undefined : (TRANSPORT_TAXONOMY_CODES.has(errorCode) ? 'TRANSPORT_MALFORMED' : errorCode ?? 'SOL_ASK_INVALID'),
     summary: accepted ? 'compiled SOL response bound to the exact ask' : staticReason({ code: errorCode ?? 'SOL_ASK_INVALID' }, 'SOL_ASK_INVALID'),
     evidenceRefs: refs,
   });
@@ -961,6 +1471,10 @@ async function executeSolAttempt({
     rejectionCode: errorCode,
     rawResponseRef: rawRef,
   });
+  const transportRefs = [
+    ...(solTransportEvidencePath === null ? [] : [`sol-transport:${path.basename(solTransportEvidencePath)}`]),
+    ...(solSemanticEvidencePath === null ? [] : [`sol-semantic:${path.basename(solSemanticEvidencePath)}`]),
+  ];
   return Object.freeze({
     invocationId: invocation.invocationId,
     callType,
@@ -969,9 +1483,11 @@ async function executeSolAttempt({
     conversion,
     accepted,
     errorCode,
-    evidenceRefs: refs,
+    evidenceRefs: [...refs, ...transportRefs],
     boundaryEvidencePath,
     brokerEvidencePath,
+    solTransportEvidencePath,
+    solTransportStore: solStore,
     processLifetimeEvidencePath,
   });
 }
@@ -1023,26 +1539,141 @@ async function authorizeInvocationBoundary({ runStore, repoDir, worktree, workUn
   return { boundary: authorized.boundary, boundaryEvidencePath };
 }
 
+/** Snapshot production supervisor timing only; raw process tables are not an API input. */
+function snapshotProcessSupervisorOptions(value) {
+  if (value === undefined || value === null) return null;
+  assertPlainOptions(value, 'processSupervisorOptions');
+  const allowed = new Set(['pollIntervalMs', 'terminateGraceMs', 'verifyGraceMs']);
+  for (const key of Object.keys(value)) if (!allowed.has(key)) throw new ConfigError(`unsupported processSupervisorOptions.${key}`);
+  const result = {};
+  for (const key of ['pollIntervalMs', 'terminateGraceMs', 'verifyGraceMs']) {
+    const item = ownDataProperty(value, key, 'processSupervisorOptions');
+    if (item !== undefined) {
+      if (!Number.isSafeInteger(item)) throw new ConfigError(`processSupervisorOptions.${key} must be an integer`);
+      result[key] = item;
+    }
+  }
+  return Object.freeze(result);
+}
+
+/** Snapshot all authority-affecting public controller inputs before any await. */
+export function snapshotControllerInputs(input) {
+  if (input === undefined) input = {};
+  assertPlainOptions(input, 'runController options');
+  const known = new Set(['cwd', 'workerCommand', 'solCommand', 'worktreeRoot', 'credentialProbePaths', 'sandboxExecutable', 'semanticValidator', 'processSupervisorOptions', 'solTransportOptions', 'testCapability', 'project']);
+  for (const key of Object.keys(input)) if (!known.has(key)) throw new ConfigError(`unsupported runController option '${key}'`);
+  const suppliedProject = ownDataProperty(input, 'project', 'runController options');
+  // Public project injection is deliberately removed. Loading through the
+  // project adapter is the only path that performs normal schema/version/
+  // sensitive-field normalization, so ordinary data cannot carry internal
+  // seam state such as sol.seamAuthorized.
+  if (suppliedProject !== undefined && suppliedProject !== null) throw new ConfigError('runController project injection is not supported; load normalized target project configuration from disk');
+  const cwdValue = ownDataProperty(input, 'cwd', 'runController options');
+  const cwd = cwdValue === undefined ? process.cwd() : cwdValue;
+  if (typeof cwd !== 'string' || cwd.length === 0) throw new ConfigError('runController cwd must be a non-empty string');
+  const workerCommand = snapshotStringArgv(ownDataProperty(input, 'workerCommand', 'runController options'), 'workerCommand');
+  const solCommand = snapshotStringArgv(ownDataProperty(input, 'solCommand', 'runController options'), 'solCommand');
+  const worktreeRootValue = ownDataProperty(input, 'worktreeRoot', 'runController options');
+  const worktreeRoot = worktreeRootValue === undefined ? null : worktreeRootValue;
+  if (worktreeRoot !== null && (typeof worktreeRoot !== 'string' || !path.isAbsolute(worktreeRoot))) throw new ConfigError('worktreeRoot must be null or an absolute path');
+  const credentialPathsValue = ownDataProperty(input, 'credentialProbePaths', 'runController options');
+  const credentialProbePaths = credentialPathsValue === undefined ? Object.freeze([]) : snapshotStringArgv(credentialPathsValue, 'credentialProbePaths', { allowUndefined: false });
+  const sandboxValue = ownDataProperty(input, 'sandboxExecutable', 'runController options');
+  const sandboxExecutable = sandboxValue === undefined ? undefined : sandboxValue;
+  if (sandboxExecutable !== undefined && (typeof sandboxExecutable !== 'string' || !path.isAbsolute(sandboxExecutable))) throw new ConfigError('sandboxExecutable must be an absolute path when provided');
+  const semanticValidator = ownDataProperty(input, 'semanticValidator', 'runController options');
+  if (semanticValidator !== undefined && typeof semanticValidator !== 'function') throw new ConfigError('semanticValidator must be a function when provided');
+  const processSupervisorOptions = snapshotProcessSupervisorOptions(ownDataProperty(input, 'processSupervisorOptions', 'runController options'));
+  const rawTransport = ownDataProperty(input, 'solTransportOptions', 'runController options');
+  let solTransportOptions = null;
+  if (rawTransport !== undefined && rawTransport !== null) {
+    const copied = snapshotJson(rawTransport, 'solTransportOptions');
+    for (const key of Object.keys(copied)) if (!['piBin', 'systemPrompt'].includes(key)) throw new ConfigError(`unsupported solTransportOptions.${key}`);
+    if (copied.piBin !== undefined && (typeof copied.piBin !== 'string' || !path.isAbsolute(copied.piBin))) throw new ConfigError('solTransportOptions.piBin must be an absolute path');
+    if (copied.systemPrompt !== undefined && (typeof copied.systemPrompt !== 'string' || copied.systemPrompt.length === 0)) throw new ConfigError('solTransportOptions.systemPrompt must be non-empty text');
+    solTransportOptions = snapshotFrozenJson(copied, 'solTransportOptions');
+  }
+  const testCapability = ownDataProperty(input, 'testCapability', 'runController options');
+  // Raw process tables are not accepted here. node:test may capture one
+  // only inside an opaque capability; it is claimed once after run creation,
+  // bound to that exact run, and the run remains non-authoritative.
+  const hasTestProcessTable = solTestSeamHasProcessTable(testCapability);
+  const requiresOpaqueSolSeam = solTransportOptions !== null || solCommand !== undefined || hasTestProcessTable;
+  const solTestAuthority = requiresOpaqueSolSeam
+    ? consumeSolTestSeam(testCapability, solTransportOptions !== null ? 'solTransportOptions' : solCommand !== undefined ? 'solCommand' : 'test process table')
+    : null;
+  // Any injected callback/supervisor/command/fixture makes the run's SOL
+  // result permanently non-authoritative. This boolean is snapshotted here;
+  // later caller mutation cannot upgrade authority.
+  const hasTestSeam = requiresOpaqueSolSeam || workerCommand !== undefined || semanticValidator !== undefined || processSupervisorOptions !== null || sandboxExecutable !== undefined;
+  return Object.freeze({
+    cwd,
+    workerCommand,
+    solCommand,
+    worktreeRoot,
+    credentialProbePaths,
+    sandboxExecutable,
+    semanticValidator,
+    processSupervisorOptions,
+    hasTestProcessTable,
+    solTransportOptions,
+    solTestAuthority,
+    hasTestSeam,
+    environment: snapshotEnvironment(process.env),
+  });
+}
+
 /** Execute one reviewable V2 work unit. */
-export async function runController({
-  cwd = process.cwd(),
-  workerCommand,
-  solCommand,
-  worktreeRoot = null,
-  credentialProbePaths = [],
-  sandboxExecutable,
-  semanticValidator,
-  processSupervisorOptions = null,
-  project: suppliedProject = null,
-} = {}) {
-  const project = suppliedProject ?? loadProjectConfig({ cwd });
+export async function runController(input = {}) {
+  // Everything below this point uses this frozen snapshot only. This code is
+  // intentionally before the first await (startup reconciliation).
+  const inputs = snapshotControllerInputs(input);
+  const {
+    cwd, workerCommand, solCommand, worktreeRoot: inputWorktreeRoot,
+    credentialProbePaths, sandboxExecutable, semanticValidator,
+    processSupervisorOptions: snappedProcessSupervisorOptions,
+    hasTestProcessTable, solTransportOptions, solTestAuthority,
+    hasTestSeam, environment,
+  } = inputs;
+  let processSupervisorOptions = snappedProcessSupervisorOptions;
+  let worktreeRoot = inputWorktreeRoot;
+  const loadedProject = loadProjectConfig({ cwd });
+  const project = snapshotFrozenJson({
+    repoDir: loadedProject.repoDir,
+    configPath: loadedProject.configPath,
+    exists: loadedProject.exists,
+    migrated: loadedProject.migrated,
+    config: loadedProject.config,
+    configDigest: loadedProject.configDigest,
+  }, 'normalized project configuration');
   const repoDir = project.repoDir;
+  assertPiAgentOverrideOutsideTarget(repoDir, environment);
   const targetBaseSha = resolveHeadSha(repoDir);
   const contract = compileProjectContract(project);
-  const routingConfig = effectiveRoutingConfig(project.config, { workerCommand, solCommand });
+  const routingConfig = effectiveRoutingConfig(project.config, { workerCommand, solCommand, solTestAuthority });
   const effectiveConfigDigest = digestConfig(routingConfig);
-  const runStore = await RunStore.create({ cwd: repoDir, targetBaseSha, configDigest: effectiveConfigDigest });
   const runtimeRoot = resolveRuntimeRoot(repoDir);
+  const solSystemPrompt = solTransportOptions?.systemPrompt ?? loadSolSystemPrompt();
+  // SOL-S11-006: startup reconciliation — stale controller-owned SOL
+  // transport surfaces (crash leftovers of terminal runs) are recognized
+  // by their controller marker, orphaned Pi processes are terminated by
+  // their invocation marker, and the surfaces are removed. Failure fails
+  // closed: a new run never starts beside unremoved isolated credential
+  // surfaces.
+  const staleSweep = await reconcileStaleSolTransportSurfaces(runtimeRoot);
+  if (!staleSweep.ok) {
+    throw new ControllerError(
+      'stale controller-owned SOL transport surfaces could not be reconciled at startup; refusing to start',
+      'SOL_TRANSPORT_RECONCILE_FAILED',
+      { failures: staleSweep.failures },
+    );
+  }
+  const runStore = await RunStore.create({ cwd: repoDir, targetBaseSha, configDigest: effectiveConfigDigest });
+  if (hasTestProcessTable) {
+    const processTable = claimSolTestProcessTable(solTestAuthority, runStore.runId, 'runController test process table');
+    if (typeof processTable.list !== 'function') throw new ConfigError('runController test process table requires list()');
+    processSupervisorOptions = Object.freeze({ ...(processSupervisorOptions ?? {}), processTable });
+  }
   const workUnitId = generateId('work-unit');
   const unit = createControllerWorkUnit({ runId: runStore.runId, workUnitId, expectedBaseSha: targetBaseSha, projectConfig: project.config });
   persistWorkUnit(runStore.runDir, unit);
@@ -1057,9 +1688,11 @@ export async function runController({
   let solDiagnosis = null;
   let solReview = null;
   let solFindings = [];
+  let activeFindingId = null;
   let stuckEvidence = {};
   let priorSolChain = null;
   let repairContract = null;
+  let repairBinding = null;
   let patchRecord = null;
   let allEvidenceRefs = [];
   let lastHandoff = null;
@@ -1070,16 +1703,23 @@ export async function runController({
   // Evidence paths are collected through a shared collector so they survive
   // fail-closed throws (e.g. PROCESS_TREE_QUIESCENCE_FAILED) that abort the
   // attempt before it can return normally.
-  const invocationEvidencePaths = { boundary: [], broker: [], processLifetime: [], validation: [] };
+  const invocationEvidencePaths = { boundary: [], broker: [], processLifetime: [], validation: [], solTransport: [] };
   const boundaryEvidencePaths = invocationEvidencePaths.boundary;
   const brokerEvidencePaths = invocationEvidencePaths.broker;
   const processLifetimeEvidencePaths = invocationEvidencePaths.processLifetime;
   const validationEvidencePaths = invocationEvidencePaths.validation;
+  const solTransportEvidencePaths = invocationEvidencePaths.solTransport;
   const routeDecisions = [];
   const controllerErrors = [];
   let finalDisposition = 'REJECTED';
   let finalReason = 'UNSUPPORTED_CLAIM';
   let candidate = null;
+  // Run-scoped SOL transport store (codex channel): created by the first
+  // SOL invocation and removed at run end; refreshed state is never written
+  // back to the real read-only source store.
+  let solStore = null;
+  // Retained from the instant it is acquired, including exception paths.
+  const solStoreRef = { current: null };
 
   try {
     for (let step = 0; step < MAX_CONTROLLER_STEPS; step += 1) {
@@ -1090,6 +1730,7 @@ export async function runController({
         contract,
         budget,
         routingConfig,
+        environment,
         resultAccepted,
         latestRejection,
         failureHistory,
@@ -1097,6 +1738,7 @@ export async function runController({
         solDiagnosis,
         solReview,
         solFindings,
+        activeFindingId,
         stuckEvidence,
         evidenceRefs: allEvidenceRefs,
       });
@@ -1106,8 +1748,14 @@ export async function runController({
       appendControllerEvent(runStore.runDir, { kind: 'ROUTE_DECISION', workUnitId, decisionId: route.decisionId, decision: route.decision, nextState: route.nextState, reasonCode: route.reasonCode });
 
       if (route.decision === 'ROUTE_COMPLETE') {
-        finalDisposition = contract.riskClass === 'LOW_RISK' ? 'SEMANTICALLY_ACCEPTED' : 'REVIEW_APPROVED';
-        finalReason = null;
+        if (solFindings.some((finding) => finding.status === 'OPEN')) {
+          finalDisposition = 'REJECTED';
+          finalReason = 'UNSUPPORTED_CLAIM';
+          controllerErrors.push({ code: 'OPEN_AUTHORITATIVE_SOL_FINDING', message: 'a work unit with an open authoritative SOL finding cannot complete or receive review approval' });
+        } else {
+          finalDisposition = contract.riskClass === 'LOW_RISK' ? 'SEMANTICALLY_ACCEPTED' : 'REVIEW_APPROVED';
+          finalReason = null;
+        }
         break;
       }
       if (route.decision === 'STOP_BUDGET') {
@@ -1149,6 +1797,52 @@ export async function runController({
       budget.consume();
 
       if (route.decision.startsWith('ROUTE_IMPLEMENT_')) {
+        if (route.targetRole === 'REPAIR') {
+          let activeFinding = null;
+          if (activeFindingId !== null) {
+            activeFinding = solFindings.find((finding) => finding.findingId === activeFindingId && finding.status === 'OPEN');
+            if (activeFinding === undefined || repairBinding?.findingId !== activeFindingId || repairContract?.repairId !== repairBinding.repairId) {
+              throw new ControllerError('targeted repair dispatch is not bound to one open authoritative SOL finding and its controller repair contract', 'SOL_ASK_INVALID');
+            }
+          } else {
+            // Fifth-review rule: every accepted adjacentCriticalDefect (and
+            // every ordinary finding) becomes an authoritative open defect
+            // record; defects are repaired sequentially (one bounded repair
+            // each) and completion stays blocked until all are explicitly
+            // resolved or left open/STUCK. A later open defect that was
+            // never repaired yet is selected and repair-bound here, one at
+            // a time, using its originating final-review exchange.
+            activeFinding = solFindings.find((finding) => finding.status === 'OPEN' && (finding.repairCycles ?? 0) === 0);
+            if (activeFinding === undefined) {
+              throw new ControllerError('routing dispatched a targeted repair but no un-repaired open authoritative SOL finding exists', 'SOL_ASK_INVALID');
+            }
+            if (activeFinding.priorSol === null || typeof activeFinding.priorSol !== 'object') {
+              throw new ControllerError('an un-repaired authoritative SOL finding has no originating final-review exchange; targeted repair is refused', 'SOL_ASK_INVALID');
+            }
+            const binding = createFinalReviewRepairBinding({
+              contract,
+              finding: activeFinding,
+              ask: activeFinding.priorSol.ask,
+              response: activeFinding.priorSol.response,
+            });
+            persistSolArtifact(runStore.runDir, 'repair-bindings', binding.ticket.repairId, binding.ticket);
+            activeFindingId = activeFinding.findingId;
+            repairContract = binding.repairContract;
+            repairBinding = binding.ticket;
+            appendControllerEvent(runStore.runDir, {
+              kind: 'SOL_FINDING_REPAIR_BOUND', workUnitId, findingId: activeFindingId,
+              repairId: binding.ticket.repairId, sourceAskId: binding.ticket.sourceAskId,
+              sourceResponseId: binding.ticket.sourceResponseId, defectKind: binding.ticket.defectKind,
+            });
+          }
+          activeFinding.repairCycles = (activeFinding.repairCycles ?? 0) + 1;
+          repairsDispatched += 1;
+          appendControllerEvent(runStore.runDir, {
+            kind: 'SOL_FINDING_REPAIR_DISPATCHED', workUnitId, findingId: activeFindingId,
+            repairId: repairBinding.repairId, sourceAskId: repairBinding.sourceAskId, sourceResponseId: repairBinding.sourceResponseId,
+            repairCycles: activeFinding.repairCycles,
+          });
+        }
         const attempt = await executeWorkerAttempt({
           runStore,
           project: { ...project, config: routingConfig },
@@ -1165,6 +1859,7 @@ export async function runController({
           usedBrokerPorts,
           processSupervisorOptions,
           evidencePaths: invocationEvidencePaths,
+          environment,
         });
         lastAttempt = attempt;
         lastHandoff = attempt.handoff;
@@ -1181,15 +1876,25 @@ export async function runController({
           failureHistory = [...failureHistory, { rejectedAcceptanceRefs: [criterion], credibleHypothesis: attempt.patchValid === true && attempt.transportValid === true }];
           resultAccepted = false;
           state = route.nextState;
-          if (route.targetRole === 'REPAIR') repairsDispatched += 1;
           finalReason = rejectionCode;
         }
         continue;
       }
 
       const callType = routeCallType(route.decision);
-      const prior = callType === 'SOL_RECHECK' ? priorSolChain : null;
-      const finding = callType === 'SOL_RECHECK' ? solFindings.find((item) => item.status === 'OPEN') ?? null : null;
+      const finding = callType === 'SOL_RECHECK'
+        ? solFindings.find((item) => item.findingId === activeFindingId && item.status === 'OPEN') ?? null
+        : null;
+      const prior = callType === 'SOL_RECHECK' ? finding?.priorSol ?? null : null;
+      if (callType === 'SOL_RECHECK' && (finding === null || prior === null)) {
+        throw new ControllerError('SOL_RECHECK must be bound to the selected open finding and its exact originating final-review exchange', 'SOL_ASK_INVALID');
+      }
+      if (callType === 'SOL_RECHECK') {
+        appendControllerEvent(runStore.runDir, {
+          kind: 'SOL_FINDING_RECHECK_DISPATCHED', workUnitId, findingId: finding.findingId,
+          repairCycles: finding.repairCycles ?? 0, sourceAskId: prior.ask.askId, sourceResponseId: prior.response.responseId,
+        });
+      }
       let solResult;
       try {
         solResult = await executeSolAttempt({
@@ -1208,18 +1913,30 @@ export async function runController({
           sandboxExecutable,
           usedBrokerPorts,
           processSupervisorOptions,
+          solTransportOptions,
+          solTestAuthority,
+          solStoreRef,
+          environment,
+          systemPrompt: solSystemPrompt,
+          forceNonAuthoritative: hasTestSeam,
           evidencePaths: invocationEvidencePaths,
         });
       } catch (error) {
+        if (solStoreRef.current !== null) solStore = solStoreRef.current;
         controllerErrors.push({ code: publicErrorCode(error, 'SOL_ASK_INVALID'), message: staticReason(error, 'SOL_ASK_INVALID') });
         finalDisposition = 'REJECTED';
         finalReason = publicErrorCode(error, 'SOL_ASK_INVALID');
         break;
       }
+      if (solStoreRef.current !== null) solStore = solStoreRef.current;
+      else if (solResult.solTransportStore !== null) solStore = solResult.solTransportStore;
       allEvidenceRefs = [...new Set([...allEvidenceRefs, ...solResult.evidenceRefs])];
       if (!solResult.accepted || solResult.response === null) {
         finalDisposition = 'REJECTED';
         finalReason = solResult.errorCode ?? 'SOL_ASK_INVALID';
+        if (solResult.errorCode === 'CODEX_OAUTH_UNAVAILABLE') {
+          controllerErrors.push({ code: 'CODEX_OAUTH_UNAVAILABLE', message: staticReason({ code: 'CODEX_OAUTH_UNAVAILABLE' }, 'CODEX_OAUTH_UNAVAILABLE') });
+        }
         break;
       }
       const response = solResult.response;
@@ -1243,11 +1960,10 @@ export async function runController({
         appendControllerEvent(runStore.runDir, { kind: 'CONTRACT_REVIEW', workUnitId, verdict: response.verdict, askId: solResult.ask.askId });
         break;
       }
-      if (callType === 'SOL_FINAL_REVIEW' || callType === 'SOL_RECHECK') {
-        const passed = response.verdict === (callType === 'SOL_FINAL_REVIEW' ? 'PASS' : 'RESOLVED');
-        const responseFindings = response.findings ?? [];
+      if (callType === 'SOL_FINAL_REVIEW') {
+        const passed = response.verdict === 'PASS';
         const findingIds = [];
-        for (const item of responseFindings) {
+        for (const item of response.findings ?? []) {
           const findingRecord = persistFinding(runStore.runDir, {
             findingId: item.findingId,
             severity: item.severity ?? 'CRITICAL',
@@ -1256,31 +1972,167 @@ export async function runController({
             evidenceRefs: item.evidenceRefs ?? [],
           });
           findingIds.push(findingRecord.findingId);
-          const existing = solFindings.find((entry) => entry.findingId === findingRecord.findingId);
-          if (existing) {
-            existing.rechecks = (existing.rechecks ?? 0) + 1;
-            existing.status = passed ? 'CLOSED' : 'OPEN';
-          } else {
-            solFindings.push({ findingId: findingRecord.findingId, status: passed ? 'CLOSED' : 'OPEN', repairCycles: callType === 'SOL_FINAL_REVIEW' ? 0 : 1, rechecks: callType === 'SOL_RECHECK' ? 1 : 0, origin: callType === 'SOL_FINAL_REVIEW' ? 'FINAL_REVIEW' : 'DIAGNOSE' });
-          }
+          solFindings.push({
+            findingId: findingRecord.findingId,
+            status: 'OPEN', repairCycles: 0, rechecks: 0, origin: 'FINAL_REVIEW',
+            defectKind: 'FINDING',
+            invariantRef: item.invariantRef, summary: item.summary,
+            priorSol: Object.freeze({ ask: solResult.ask, response }),
+          });
+        }
+        // Fifth-review rule: every accepted adjacentCriticalDefect becomes
+        // an authoritative open defect record with a stable controller
+        // identity (persisted via the shared review-finding ledger) and
+        // evidence binding. It is repair-bound, rechecked, and explicitly
+        // resolved or left open/STUCK; completion/REVIEW_APPROVED is
+        // forbidden while any accepted adjacent critical defect is open.
+        for (const [index, item] of (response.adjacentCriticalDefects ?? []).entries()) {
+          // Fifth-review rule: the defect gets a STABLE controller
+          // identity derived deterministically from its locked content, so
+          // the exact RECHECK ask can bind to it through the prior
+          // response without any caller-supplied mapping.
+          const defectRecord = persistFinding(runStore.runDir, {
+            findingId: adjacentDefectFindingId(item),
+            severity: 'CRITICAL',
+            summary: item.summary,
+            evidenceRefs: item.evidenceRefs ?? [],
+          });
+          findingIds.push(defectRecord.findingId);
+          solFindings.push({
+            findingId: defectRecord.findingId,
+            status: 'OPEN', repairCycles: 0, rechecks: 0, origin: 'FINAL_REVIEW',
+            defectKind: 'ADJACENT_CRITICAL_DEFECT',
+            invariantRef: null,
+            lockedRequirementRef: item.lockedRequirementRef,
+            adjacentIndex: index,
+            summary: item.summary,
+            evidenceRefs: Object.freeze([...(item.evidenceRefs ?? [])]),
+            priorSol: Object.freeze({ ask: solResult.ask, response }),
+          });
+        }
+        if (passed) {
+          solReview = { verdict: 'PASSED', findingIds: [] };
+          resultAccepted = true;
+          state = route.nextState;
+          continue;
+        }
+        const selected = solFindings.find((entry) => findingIds.includes(entry.findingId) && entry.status === 'OPEN');
+        if (selected === undefined) throw new ControllerError('SOL_FINAL_REVIEW failure did not create a selectable authoritative finding', 'SOL_ASK_INVALID');
+        const binding = createFinalReviewRepairBinding({ contract, finding: selected, ask: solResult.ask, response });
+        persistSolArtifact(runStore.runDir, 'repair-bindings', binding.ticket.repairId, binding.ticket);
+        activeFindingId = selected.findingId;
+        repairContract = binding.repairContract;
+        repairBinding = binding.ticket;
+        solReview = { verdict: 'FINDING', findingIds };
+        resultAccepted = false;
+        state = route.nextState;
+        appendControllerEvent(runStore.runDir, {
+          kind: 'SOL_FINAL_REVIEW_FINDING_BOUND', workUnitId, findingId: selected.findingId,
+          defectKind: selected.defectKind,
+          repairId: binding.ticket.repairId, askId: solResult.ask.askId, responseId: response.responseId,
+        });
+        failureHistory = [...failureHistory, { rejectedAcceptanceRefs: [binding.ticket.lockedRequirementRef], credibleHypothesis: true }];
+        continue;
+      }
+      if (callType === 'SOL_RECHECK') {
+        const selected = finding;
+        if (selected === null) throw new ControllerError('SOL_RECHECK lost its selected prior finding', 'SOL_ASK_INVALID');
+        const passed = response.verdict === 'RESOLVED';
+        selected.rechecks = (selected.rechecks ?? 0) + 1;
+        if (passed) selected.status = 'CLOSED';
+        const findingIds = [selected.findingId];
+        for (const item of response.findings ?? []) {
+          const findingRecord = persistFinding(runStore.runDir, {
+            findingId: item.findingId,
+            severity: item.severity ?? 'CRITICAL', invariantRef: item.invariantRef,
+            summary: item.summary, evidenceRefs: item.evidenceRefs ?? [],
+          });
+          if (!findingIds.includes(findingRecord.findingId)) findingIds.push(findingRecord.findingId);
         }
         solReview = { verdict: passed ? 'PASSED' : 'FINDING', findingIds };
         resultAccepted = passed;
         state = route.nextState;
-        if (!passed && callType === 'SOL_FINAL_REVIEW') {
-          // The routing policy turns this named finding into exactly one
-          // bounded repair, never an open-ended implementation retry.
-          failureHistory = [...failureHistory, { rejectedAcceptanceRefs: [sideEffectSpecs(contract)[0]?.sideEffectId], credibleHypothesis: true }];
+        appendControllerEvent(runStore.runDir, {
+          kind: 'SOL_RECHECK_RECORDED', workUnitId, findingId: selected.findingId,
+          verdict: response.verdict, status: selected.status, rechecks: selected.rechecks,
+          sourceAskId: selected.priorSol.ask.askId, sourceResponseId: selected.priorSol.response.responseId,
+        });
+        if (passed) {
+          activeFindingId = null;
+          repairBinding = null;
+          repairContract = null;
         }
         continue;
       }
     }
 
+    // SOL-S11-002: a run that used any controller-internal test seam is
+    // NON-AUTHORITATIVE — it is structurally incapable of producing
+    // production REVIEW_APPROVED.
+    if (finalDisposition === 'REVIEW_APPROVED' && hasTestSeam) {
+      finalDisposition = 'REJECTED';
+      finalReason = 'SOL_TEST_SEAM_NON_AUTHORITATIVE';
+      controllerErrors.push({ code: 'SOL_TEST_SEAM_NON_AUTHORITATIVE', message: staticReason({ code: 'SOL_TEST_SEAM_NON_AUTHORITATIVE' }, 'SOL_TEST_SEAM_NON_AUTHORITATIVE') });
+    }
+    // SOL-S11-007 (within-run refresh continuity) + SOL-S11-006
+    // (crash-resilient cleanup): refreshed credentials remain only in the
+    // isolated run store. At run end LCIM verifies its read-only source
+    // snapshot and securely removes the isolated store. No write-back API
+    // or real-store locking/writing path exists.
+    if (solStore !== null) {
+      // Sixth-review scope simplification: no refresh write-back exists.
+      // Verify the real Pi auth store is READ-ONLY — byte-identical to the
+      // acquisition snapshot — and record the observation. An external
+      // concurrent Pi refresh is reported (never repaired, never failed
+      // closed: LCIM itself never wrote it). The strong guarantee is
+      // structural: the reconciliation write path was removed entirely.
+      if (typeof solStore.verifyRealAuthSourceUnchanged === 'function') {
+        const realAuthReadOnly = solStore.verifyRealAuthSourceUnchanged();
+        appendControllerEvent(runStore.runDir, {
+          kind: 'SOL_REAL_AUTH_READONLY_VERIFIED',
+          workUnitId,
+          invocationId: null,
+          readOnly: realAuthReadOnly.changed !== true,
+          reason: realAuthReadOnly.reason ?? null,
+          recordedAt: now(),
+        });
+      }
+      if (!solStore.isRemoved()) {
+        try {
+          await solStore.remove();
+        } catch (error) {
+          controllerErrors.push({ code: SOL_TRANSPORT_CLEANUP_FAILED, message: staticReason({ code: SOL_TRANSPORT_CLEANUP_FAILED }, SOL_TRANSPORT_CLEANUP_FAILED) });
+          finalDisposition = 'REJECTED';
+          finalReason = SOL_TRANSPORT_CLEANUP_FAILED;
+        }
+      }
+    }
+
+    // Positive terminal transport cleanup is required before any candidate
+    // or approval disposition is persisted. A failure leaves the run open
+    // for explicit recovery and cannot create a reviewable acceptance.
+    try {
+      await requireTerminalSolTransportCleanup(runStore.runDir);
+    } catch (error) {
+      finalDisposition = 'REJECTED';
+      finalReason = SOL_TRANSPORT_CLEANUP_FAILED;
+      controllerErrors.push({
+        code: SOL_TRANSPORT_CLEANUP_FAILED,
+        message: staticReason({ code: SOL_TRANSPORT_CLEANUP_FAILED }, SOL_TRANSPORT_CLEANUP_FAILED),
+      });
+    }
+
+    if ((finalDisposition === 'SEMANTICALLY_ACCEPTED' || finalDisposition === 'REVIEW_APPROVED') && solFindings.some((finding) => finding.status === 'OPEN')) {
+      finalDisposition = 'REJECTED';
+      finalReason = 'UNSUPPORTED_CLAIM';
+      controllerErrors.push({ code: 'OPEN_AUTHORITATIVE_SOL_FINDING', message: 'open authoritative SOL findings prohibit unit completion and review approval' });
+    }
     if (finalDisposition === 'REJECTED' && finalReason === null) finalReason = 'UNSUPPORTED_CLAIM';
     const boundaryRefs = boundaryEvidencePaths.map((file) => `boundary:${path.basename(file)}`);
     const processLifetimeRefs = processLifetimeEvidencePaths.map((file) => `process-lifetime:${path.basename(file)}`);
     const validationRefs = validationEvidencePaths.map((file) => `validation-evidence:${path.basename(file)}`);
-    const dispositionRefs = [...new Set([...allEvidenceRefs, ...boundaryRefs, ...processLifetimeRefs, ...validationRefs])];
+    const solTransportRefs = solTransportEvidencePaths.map((file) => `sol-transport:${path.basename(file)}`);
+    const dispositionRefs = [...new Set([...allEvidenceRefs, ...boundaryRefs, ...processLifetimeRefs, ...validationRefs, ...solTransportRefs])];
     if (finalDisposition === 'REJECTED') {
       finalReason = canonicalRejectionCode(finalReason);
       const rejection = persistRejection(runStore.runDir, {
@@ -1313,7 +2165,11 @@ export async function runController({
     }
     persistWorkUnit(runStore.runDir, { ...unit, status: finalDisposition === 'REJECTED' || finalDisposition === 'REVIEW_REQUIRED' ? 'FAILED' : 'COMPLETED' });
   } catch (error) {
-    controllerErrors.push({ code: publicErrorCode(error), message: staticReason(error, 'CONTROLLER_FAILED') });
+    const details = error?.details;
+    controllerErrors.push({
+      code: publicErrorCode(error),
+      message: staticReason(error, 'CONTROLLER_FAILED') + (details?.reason !== undefined && details?.reason !== null ? ` (${details.reason})` : ''),
+    });
     finalDisposition = 'REJECTED';
     finalReason = canonicalRejectionCode(publicErrorCode(error, 'UNSUPPORTED_CLAIM'));
     try {
@@ -1322,6 +2178,17 @@ export async function runController({
       // The finalizer below still preserves the invocation ledger.
     }
   } finally {
+    // SOL-S11-006: the run-scoped credential store must never outlive the
+    // run, success or failure (exception paths). Removal is observed, never
+    // inferred; a leftover store is swept by `recover`/startup
+    // reconciliation.
+    if (solStore !== null && !solStore.isRemoved()) {
+      try {
+        await solStore.remove();
+      } catch (error) {
+        controllerErrors.push({ code: SOL_TRANSPORT_CLEANUP_FAILED, message: staticReason({ code: SOL_TRANSPORT_CLEANUP_FAILED }, SOL_TRANSPORT_CLEANUP_FAILED) });
+      }
+    }
     try {
       await runStore.reconcileOrphans();
     } catch (error) {
@@ -1332,11 +2199,25 @@ export async function runController({
   let lifecycleState = null;
   let finalSummary = null;
   try {
+    // A run may not become terminal merely because its in-memory store
+    // handle believes cleanup succeeded. Sweep the marker-bound on-disk
+    // surfaces and positively verify process absence immediately before the
+    // terminal ledger transition.
+    await requireTerminalSolTransportCleanup(runStore.runDir);
+    // The authoritative terminal transition always repeats cleanup with
+    // canonical production process inspection inside RunStore.finalize().
+    // A test table may exercise the earlier non-authoritative sweep, but it
+    // can never prove the terminal absence fact.
     const finalized = await runStore.finalize();
     lifecycleState = finalized.lifecycleState;
     finalSummary = finalized.finalSummary;
   } catch (error) {
-    controllerErrors.push({ code: 'INCOMPLETE_LEDGER', message: 'run finalization failed; use lcim recover with the run id' });
+    controllerErrors.push({
+      code: error?.code === SOL_TRANSPORT_CLEANUP_FAILED ? SOL_TRANSPORT_CLEANUP_FAILED : 'INCOMPLETE_LEDGER',
+      message: error?.code === SOL_TRANSPORT_CLEANUP_FAILED
+        ? staticReason({ code: SOL_TRANSPORT_CLEANUP_FAILED }, SOL_TRANSPORT_CLEANUP_FAILED)
+        : 'run finalization failed; use lcim recover with the run id',
+    });
     lifecycleState = 'INCOMPLETE_LEDGER';
   }
 
@@ -1380,31 +2261,87 @@ export async function runController({
     brokerEvidencePaths: Object.freeze([...brokerEvidencePaths]),
     processLifetimeEvidencePaths: Object.freeze([...processLifetimeEvidencePaths]),
     validationEvidencePaths: Object.freeze([...validationEvidencePaths]),
+    solTransportEvidencePaths: Object.freeze([...solTransportEvidencePaths]),
     cleanup,
     errors: controllerErrors,
     runtimeRoot,
   });
 }
 
-export async function recoverRun({ cwd = process.cwd(), runId } = {}) {
+function snapshotPublicTerminalOptions(input, operation, allowed) {
+  if (input === undefined) input = {};
+  assertPlainOptions(input, `${operation} options`);
+  for (const key of Object.keys(input)) {
+    const descriptor = Object.getOwnPropertyDescriptor(input, key);
+    if (descriptor?.get !== undefined || descriptor?.set !== undefined) throw new ConfigError(`${operation}.${key} must be a data property`);
+    if (!allowed.has(key) && descriptor?.value !== undefined) {
+      throw new ConfigError(`${operation} does not accept '${key}'; production terminalization always uses canonical process inspection`);
+    }
+  }
+  return input;
+}
+
+async function requireTerminalSolTransportCleanup(runDir) {
+  const sweep = await sweepRunSolTransportSurfaces(runDir);
+  if (!sweep.ok) {
+    throw new ControllerError(
+      'SOL transport cleanup/process absence could not be positively verified; terminalization is refused',
+      'SOL_TRANSPORT_CLEANUP_FAILED',
+      { failures: sweep.failures },
+    );
+  }
+  return sweep;
+}
+
+export async function recoverRun(input = {}) {
+  const options = snapshotPublicTerminalOptions(input, 'recoverRun', new Set(['cwd', 'runId']));
+  const cwd = options.cwd ?? process.cwd();
+  const { runId } = options;
   if (typeof runId !== 'string' || runId.length === 0) throw new ConfigError('recover requires a run id');
   const store = await RunStore.open({ cwd, runId });
+  // SOL-S11-006: crash recovery sweeps every controller-owned SOL
+  // transport surface of the run (terminating orphaned Pi processes by
+  // their invocation markers and removing marker-recognized surfaces).
+  // `recover` is the explicit operator command that treats the run as
+  // dead; leftovers are never silently assumed clean.
+  const recoveredSolTransportSurfaces = await requireTerminalSolTransportCleanup(store.runDir);
   if (store.record.lifecycleState !== 'OPEN') {
-    return Object.freeze({ runId, reconciled: [], lifecycleState: store.record.lifecycleState, finalSummary: store.record.finalSummary });
+    return Object.freeze({ runId, reconciled: [], recoveredSolTransportSurfaces, lifecycleState: store.record.lifecycleState, finalSummary: store.record.finalSummary });
   }
   const reconciled = await store.reconcileOrphans();
   const finalized = await store.finalize();
-  return Object.freeze({ runId, reconciled, ...finalized });
+  return Object.freeze({ runId, reconciled, recoveredSolTransportSurfaces, ...finalized });
 }
 
-export async function finalizeRun({ cwd = process.cwd(), runId } = {}) {
+export async function finalizeRun(input = {}) {
+  const options = snapshotPublicTerminalOptions(input, 'finalizeRun', new Set(['cwd', 'runId']));
+  const cwd = options.cwd ?? process.cwd();
+  const { runId } = options;
   if (typeof runId !== 'string' || runId.length === 0) throw new ConfigError('finalize requires a run id');
   const store = await RunStore.open({ cwd, runId });
-  return Object.freeze({ runId, ...(store.record.lifecycleState === 'OPEN' ? await store.finalize() : { lifecycleState: store.record.lifecycleState, finalSummary: store.record.finalSummary }) });
+  const terminalSolTransport = await requireTerminalSolTransportCleanup(store.runDir);
+  return Object.freeze({
+    runId,
+    terminalSolTransport,
+    ...(store.record.lifecycleState === 'OPEN'
+      ? await store.finalize()
+      : { lifecycleState: store.record.lifecycleState, finalSummary: store.record.finalSummary }),
+  });
 }
 
-export async function abortRun({ cwd = process.cwd(), runId, note = 'controller abort requested' } = {}) {
+export async function abortRun(input = {}) {
+  const options = snapshotPublicTerminalOptions(input, 'abortRun', new Set(['cwd', 'runId', 'note']));
+  const cwd = options.cwd ?? process.cwd();
+  const { runId } = options;
+  const note = options.note ?? 'controller abort requested';
   if (typeof runId !== 'string' || runId.length === 0) throw new ConfigError('abort requires a run id');
   const store = await RunStore.open({ cwd, runId });
-  return Object.freeze({ runId, ...(store.record.lifecycleState === 'OPEN' ? await store.abort({ note }) : { lifecycleState: store.record.lifecycleState }) });
+  const terminalSolTransport = await requireTerminalSolTransportCleanup(store.runDir);
+  return Object.freeze({
+    runId,
+    terminalSolTransport,
+    ...(store.record.lifecycleState === 'OPEN'
+      ? await store.abort({ note })
+      : { lifecycleState: store.record.lifecycleState }),
+  });
 }

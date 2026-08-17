@@ -115,15 +115,37 @@ process.stdin.on('end', () => {
 });
 `, { mode: 0o600 });
   const config = JSON.parse(fs.readFileSync(target.configPath, 'utf8'));
-  config.sol.command = ['node', path.basename(sol)];
-  config.endpoints['sol-xhigh'] = { baseUrl: 'local://s11-e2e-sol', kind: 'local-command' };
+  // Fifth-review rule: the only automatic SOL channel is the strict Codex
+  // transport gate (gpt-5.6-sol on provider pi); the fixture Pi runs
+  // through the capability-gated controller-internal test seam.
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  config.permissions.externalProvider = true;
   fs.writeFileSync(target.configPath, `${JSON.stringify(config, null, 2)}\n`);
 
   let semanticCalls = 0;
+  const { mintSolTestSeam } = await import('../../src/controller/test-seams.mjs');
+  const { withCodexOAuthStore, writeCodexFixturePi } = await import('../integration/codex-seam.mjs');
+  // Sixth-review rule: tests never depend on the machine's REAL Pi auth
+  // store; a fixture OAuth store stands in for the read-only source.
+  withCodexOAuthStore(t);
   const result = await (await import('../../src/controller/orchestrator.mjs')).runController({
     cwd: target.root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: writeCodexFixturePi(t) },
+    testCapability: mintSolTestSeam(),
   });
+  const e2eRunDir = path.join(result.runtimeRoot, 'runs', result.runId);
+  if (fs.existsSync(path.join(e2eRunDir, 'invocations'))) {
+    for (const f of fs.readdirSync(path.join(e2eRunDir, 'invocations'))) {
+      const inv = JSON.parse(fs.readFileSync(path.join(e2eRunDir, 'invocations', f), 'utf8'));
+        }
+  }
+  const e2eEv = path.join(e2eRunDir, 'controller', 'sol-transport', 'evidence');
+  if (fs.existsSync(e2eEv)) {
+    for (const f of fs.readdirSync(e2eEv)) {
+      const ev = JSON.parse(fs.readFileSync(path.join(e2eEv, f), 'utf8'));
+        }
+  }
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.equal(result.disposition, 'SEMANTICALLY_ACCEPTED');
   assert.equal(result.finalSummary.invocations, 3);

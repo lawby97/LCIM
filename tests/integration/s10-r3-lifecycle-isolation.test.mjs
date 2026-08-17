@@ -47,6 +47,8 @@ import { fileURLToPath } from 'node:url';
 
 import { setupProject } from '../../src/project/config.mjs';
 import { runController } from '../../src/controller/orchestrator.mjs';
+import { codexSeam } from './codex-seam.mjs';
+import { mintSolTestSeam } from '../../src/controller/test-seams.mjs';
 import {
   authorizeWorkerExecutionBoundary,
   runConstrainedProcess,
@@ -689,7 +691,8 @@ test('SOL-S10-001/R3-E: unprovable quiescence fails closed: no candidate, no nex
   const result = await runController({
     cwd: root,
     workerCommand: ['node', 'worker.cjs'],
-    processSupervisorOptions: { processTable: fakeTable, terminateGraceMs: 300, verifyGraceMs: 300 },
+    processSupervisorOptions: { terminateGraceMs: 300, verifyGraceMs: 300 },
+    testCapability: mintSolTestSeam({ processTable: fakeTable }),
   });
 
   assert.equal(result.ok, false);
@@ -730,18 +733,23 @@ test('SOL-S10-001/R3-E: unprovable quiescence fails closed: no candidate, no nex
 // SOL authority (local worker -> external SOL)
 // ---------------------------------------------------------------------------
 
-test('SOL-S10-001/R4-F: a detached worker watcher cannot be created at all; future SOL authority is untouched (local worker -> external SOL)', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-sol-test-key-0123456789abcdef');
+test('SOL-S10-001/R4-F: a detached worker watcher cannot be created at all; future SOL authority is untouched (local worker -> codex SOL transport)', async (t) => {
   // DEEPSEEK_API_KEY deliberately absent: the local worker needs no broker.
-  const sol = await fakeUpstream(t, { name: 'sol-http', agent: solAgent });
-  const root = makeTarget(t, { solUrl: sol.baseUrl, allowedWritePaths: ['a.txt', '.watcher.log'] });
+  const root = makeTarget(t, { solUrl: null, allowedWritePaths: ['a.txt', '.watcher.log'] });
+  const configPath = path.join(root, '.lcim', 'project.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
+  fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
   const watcher = watcherFixture(root, { sleepMs: 90_000 });
   installLocalWorkerWithWatcherDenied(root, watcher);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
   assert.equal(result.ok, true);
@@ -762,71 +770,80 @@ test('SOL-S10-001/R4-F: a detached worker watcher cannot be created at all; futu
   assert.equal(patchText.includes('WINDOW-END'), false, 'the watcher never ran');
   assert.equal(patchText.includes('GENERIC SOL ATTACK'), false, 'no generic SOL request was ever attempted');
 
-  // 3. The SOL upstream received EXACTLY the legitimate compiled ask.
-  assert.equal(sol.requests.length, 1, 'zero generic attacker SOL requests may reach the SOL upstream');
-  assert.equal(sol.requests[0].model, 'sol-xhigh');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
-  assert.equal(sol.requests[0].prompt.includes('GENERIC SOL ATTACK'), false);
+  // 3. The SOL role ran through the controller-side codex transport bound
+  //    to the compiled ask — zero generic attacker content. Sixth-review
+  //    rule: the transport proof is persisted before parse and the
+  //    semantic-acceptance record is persisted after compilation.
+  assert.equal(result.solTransportEvidencePaths.length, 2);
+  const evidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths[0], 'utf8'));
+  assert.equal(evidence.phase, 'TRANSPORT_PROOF');
+  assert.equal(evidence.transportProofs.gatePassed, true);
+  assert.equal(evidence.credentialLeak, false);
+  const semanticEvidence = JSON.parse(fs.readFileSync(result.solTransportEvidencePaths.find((file) => file.endsWith('.semantic.json')), 'utf8'));
+  assert.equal(semanticEvidence.finalAcceptance, true);
 
-  // 4. Every invocation's process-lifetime evidence records the structural
-  //    primary proof; quiescence verified.
+  // 4. Every invocation's process-lifetime evidence verifies quiescence.
+  //    The two LOCAL WORKER invocations record the structural primary
+  //    proof; the codex SOL transport is a trusted controller-side process
+  //    and its supervisor is PRIMARY (process-group termination + marker
+  //    sweep), never a boundary invocation.
   assert.equal(result.processLifetimeEvidencePaths.length, 3);
   const allPl = result.processLifetimeEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
   assert.ok(allPl.every((pl) => pl.quiescenceVerified === true));
-  assert.ok(allPl.every((pl) => pl.childCreationStructurallyDenied === true), 'every model invocation records the structural proof');
-  assert.ok(allPl.every((pl) => pl.primaryProof === 'CHILD_CREATION_STRUCTURALLY_DENIED'));
+  const workerPl = allPl.filter((pl) => pl.primaryProof === 'CHILD_CREATION_STRUCTURALLY_DENIED');
+  const codexPl = allPl.filter((pl) => pl.primaryProof === 'PROCESS_TREE_QUIESCENCE');
+  assert.equal(workerPl.length, 2, 'both worker invocations record the structural proof');
+  assert.equal(codexPl.length, 1, 'the codex SOL invocation supervisor is PRIMARY');
+  assert.equal(codexPl[0].supervisorRole, 'PRIMARY');
 
   // 5. Ledger: only the legitimate SOL invocation exists (role SOL).
   const events = readLedgerEvents(root, result.runId);
   const solStarts = events.filter((event) => event.kind === 'START' && event.role === 'SOL');
   assert.equal(solStarts.length, 1);
-  assert.equal(solStarts[0].model, 'sol-xhigh');
+  assert.equal(solStarts[0].model, 'gpt-5.6-sol');
   assert.equal(events.filter((event) => event.kind === 'START').length, 3);
 
-  // 6. Broker architecture: the local worker used NO broker (DENY_ALL
-  //    boundary); the SOL invocation used ONE fresh broker endpoint.
-  assert.equal(result.brokerEvidencePaths.length, 1);
-  const solBroker = JSON.parse(fs.readFileSync(result.brokerEvidencePaths[0], 'utf8'));
-  assert.equal(solBroker.byModel['sol-xhigh']?.requests, 1);
-  assert.equal(solBroker.invocationsRegistered, 1);
-  assert.equal(solBroker.invocationsRevoked, 1);
+  // 6. Broker architecture: the local workers used NO broker (DENY_ALL
+  //    boundaries); the codex SOL role is controller-side and created NO
+  //    broker at all — there is no network surface a watcher could reach.
+  assert.equal(result.brokerEvidencePaths.length, 0, 'the codex SOL route never creates a broker listener');
   const boundaries = result.boundaryEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
-  assert.equal(boundaries.length, 3);
+  assert.equal(boundaries.length, 2, 'only the two local worker invocations created boundaries');
   assert.ok(boundaries.every((b) => b.processCreation === 'DENIED'), 'every model boundary is structural no-descendant');
   assert.ok(boundaries.every((b) => b.childCreation.mode === 'STRUCTURALLY_DENIED' && b.childCreation.blocked === true), 'the empirical child-creation probe blocked every model boundary');
-  assert.equal(boundaries.filter((b) => b.network.mode === 'DENY_ALL').length, 2, 'both local worker boundaries are DENY_ALL');
-  assert.equal(boundaries.filter((b) => b.network.mode === 'BROKER_ONLY').length, 1, 'only the SOL boundary allows its own broker endpoint');
+  assert.ok(boundaries.every((b) => b.network.mode === 'DENY_ALL'), 'both local worker boundaries are DENY_ALL');
 });
 
 // ---------------------------------------------------------------------------
 // R3/7 — DeepSeek worker -> SOL isolation
 // ---------------------------------------------------------------------------
 
-test('SOL-S10-001/R3-G: DeepSeek worker -> SOL: fresh broker per invocation; a worker-boundary process cannot reach the SOL endpoint', { skip: hasRealPi ? false : 'real pi CLI not on PATH' }, async (t) => {
+test('SOL-S10-001/R3-G: DeepSeek worker -> codex SOL transport: fresh broker per DeepSeek invocation; the codex SOL surface is controller-side with no broker to reach', async (t) => {
   withCredentialEnv(t, 'DEEPSEEK_API_KEY', 's10-deepseek-test-key-0123456789abcdef');
-  withCredentialEnv(t, 'OPENAI_API_KEY', 's10-sol-test-key-0123456789abcdef');
   const root = makeTarget(t, { deepseekUrl: null, solUrl: null, allowedWritePaths: ['a.txt', '.watcher.log'] });
   const watcher = watcherFixture(root, { sleepMs: 90_000 });
   const deepseek = await fakeUpstream(t, { name: 'deepseek-watch-http', agent: deepseekAgentWithWatcher(watcher) });
-  const sol = await fakeUpstream(t, { name: 'sol-http', agent: solAgent });
   // The deepseek agent ATTEMPTS to spawn the watcher inside a sandboxed
   // bash tool turn; under the R4 tool surface the tool itself is rejected
   // (zero child creation) and the agent falls back to the write tool.
   const configPath = path.join(root, '.lcim', 'project.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
   config.endpoints['deepseek-v4-flash'] = { baseUrl: deepseek.baseUrl, kind: 'external' };
-  config.endpoints['sol-xhigh'] = { baseUrl: sol.baseUrl, kind: 'external' };
+  config.endpoints['gpt-5.6-sol'] = { baseUrl: 'https://chatgpt.example.invalid/backend-api', kind: 'external' };
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  const seam = codexSeam(t);
 
   let semanticCalls = 0;
   const result = await runController({
     cwd: root,
     semanticValidator: async () => ({ accepted: ++semanticCalls > 1 }),
+    solTransportOptions: { piBin: seam.piBin },
+    testCapability: seam.testCapability,
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.disposition, 'SEMANTICALLY_ACCEPTED');
-  assert.equal(result.finalSummary.invocations, 3, 'deepseek worker + SOL + deepseek repair worker');
+  assert.equal(result.finalSummary.invocations, 3, 'deepseek worker + codex SOL + deepseek repair worker');
 
   // 1. The detached watcher was NEVER created: the bash tool was rejected by
   //    the tool surface (`Tool bash not found`) and the structural boundary
@@ -842,49 +859,44 @@ test('SOL-S10-001/R3-G: DeepSeek worker -> SOL: fresh broker per invocation; a w
   assert.equal(patchText.includes('GENERIC SOL ATTACK'), false, 'no generic SOL attack was ever attempted');
   assert.deepEqual(result.patchEvidence.changedPaths, ['a.txt']);
 
-  // 3. ZERO generic SOL requests reached any upstream; the SOL upstream saw
-  //    exactly the legitimate compiled ask.
+  // 3. ZERO generic SOL requests reached any upstream; the codex SOL role
+  //    ran through the controller-side transport with the compiled ask.
   assert.ok(deepseek.requests.every((request) => !request.body.includes('GENERIC SOL ATTACK')), 'no generic SOL request may reach the DeepSeek upstream');
   assert.ok(deepseek.requests.every((request) => request.model === 'deepseek-v4-flash'), 'only the bound deepseek model was ever addressed');
-  assert.equal(sol.requests.length, 1);
-  assert.equal(sol.requests[0].model, 'sol-xhigh');
-  assert.match(sol.requests[0].prompt, /Ask id: lcim_sol_ask_/);
+  assert.equal(result.solTransportEvidencePaths.length, 2, 'the codex SOL transport proof + semantic acceptance evidence exist');
 
-  // 4. Fresh broker per external invocation: three distinct broker
-  //    endpoints (deepseek worker A, SOL B, deepseek repair), each with
-  //    exactly one capability, revoked.
-  assert.equal(result.brokerEvidencePaths.length, 3);
+  // 4. Fresh broker per DEEPSEEK invocation only: two distinct broker
+  //    endpoints (worker A, repair), each with exactly one capability,
+  //    revoked. The codex SOL role never creates a broker — a worker-boundary
+  //    process structurally has no SOL network surface to reach.
+  assert.equal(result.brokerEvidencePaths.length, 2);
   const brokerEvidences = result.brokerEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
   const ports = brokerEvidences.map((evidence) => evidence.port);
-  assert.equal(new Set(ports).size, 3, 'every invocation broker endpoint must be distinct');
+  assert.equal(new Set(ports).size, 2, 'every DeepSeek invocation broker endpoint must be distinct');
   assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['deepseek-v4-flash'] !== undefined).length, 2);
-  assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['sol-xhigh'] !== undefined).length, 1);
+  assert.equal(brokerEvidences.filter((evidence) => evidence.byModel['sol-xhigh'] !== undefined).length, 0, 'no SOL broker may ever exist');
   assert.ok(brokerEvidences.every((evidence) => evidence.invocationsRegistered === 1 && evidence.invocationsRevoked === 1));
 
-  // 5. Each invocation boundary pins exactly its own broker endpoint; the
-  //    worker boundary's seatbelt policy cannot reach the SOL endpoint; all
-  //    model boundaries structurally deny child creation.
+  // 5. Each DeepSeek invocation boundary pins exactly its own broker
+  //    endpoint; all model boundaries structurally deny child creation.
   const boundaries = result.boundaryEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
-  assert.equal(boundaries.length, 3);
+  assert.equal(boundaries.length, 2);
   assert.ok(boundaries.every((b) => b.network.mode === 'BROKER_ONLY'));
   assert.ok(boundaries.every((b) => b.processCreation === 'DENIED' && b.childCreation.mode === 'STRUCTURALLY_DENIED' && b.childCreation.blocked === true));
-  const workerBoundary = boundaries[0];
-  const solBoundaryPort = brokerEvidences.find((evidence) => evidence.byModel['sol-xhigh'] !== undefined).port;
-  assert.notEqual(workerBoundary.network.broker.port, solBoundaryPort, 'the worker boundary must not allow the SOL endpoint');
 
   // 6. Ledger contains only the legitimate SOL invocation.
   const events = readLedgerEvents(root, result.runId);
   assert.equal(events.filter((event) => event.kind === 'START' && event.role === 'SOL').length, 1);
   assert.equal(events.filter((event) => event.kind === 'START').length, 3);
 
-  // 7. Quiescence evidence per invocation: verified AND structural.
+  // 7. Quiescence evidence per invocation: verified for all three; the
+  //    two DeepSeek boundary invocations record the structural primary
+  //    proof, and the codex SOL transport supervisor is PRIMARY.
   assert.equal(result.processLifetimeEvidencePaths.length, 3);
-  for (const file of result.processLifetimeEvidencePaths) {
-    const pl = JSON.parse(fs.readFileSync(file, 'utf8'));
-    assert.equal(pl.quiescenceVerified, true);
-    assert.equal(pl.childCreationStructurallyDenied, true);
-    assert.equal(pl.primaryProof, 'CHILD_CREATION_STRUCTURALLY_DENIED');
-  }
+  const pls = result.processLifetimeEvidencePaths.map((file) => JSON.parse(fs.readFileSync(file, 'utf8')));
+  assert.ok(pls.every((pl) => pl.quiescenceVerified === true));
+  assert.equal(pls.filter((pl) => pl.primaryProof === 'CHILD_CREATION_STRUCTURALLY_DENIED').length, 2);
+  assert.equal(pls.filter((pl) => pl.primaryProof === 'PROCESS_TREE_QUIESCENCE' && pl.supervisorRole === 'PRIMARY').length, 1);
 });
 
 // ---------------------------------------------------------------------------

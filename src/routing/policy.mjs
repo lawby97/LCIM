@@ -58,7 +58,7 @@
 
 import { isHighRiskClass } from '../risk/classes.mjs';
 import { ConfigError } from '../shared/errors.mjs';
-import { RoutingError, RouteStateError, ProviderDiscoveryError } from './errors.mjs';
+import { RoutingError, RouteStateError, ProviderDiscoveryError, SolCommandMasqueradeError } from './errors.mjs';
 import { generateRouteDecisionId } from './ids.mjs';
 import { nextState, isTerminalState } from './state.mjs';
 import { evaluateStuckCriteria } from './stuck.mjs';
@@ -68,7 +68,12 @@ import {
   resolveImplementationModel,
   assertNoDowngrade,
   discoverSolRoute,
+  discoverSolCodexRoute,
+  resolveSolChannel,
 } from '../providers/capabilities/discovery.mjs';
+import { CODEX_SOL_MODEL, CLASSIC_SOL_MODEL } from '../providers/capabilities/metadata.mjs';
+import { assertCodexOAuthAvailable } from '../providers/oauth.mjs';
+import { isSolFixtureRoutingConfig } from '../controller/test-seams.mjs';
 import { validateSemanticContract } from '../contracts/validate.mjs';
 import { computeCompileStatus } from '../contracts/status.mjs';
 
@@ -83,12 +88,12 @@ export const SEMANTIC_REJECTION_CODES = Object.freeze([
   'UNSUPPORTED_CLAIM',
 ]);
 
-/** SOL role targets for route decisions. */
+/** SOL role targets for route decisions (2.1: the strict Codex transport gate only). */
 const SOL_TARGETS = Object.freeze({
-  'ROUTE_SOL_CONTRACT_CHECK': { model: 'sol-xhigh', role: 'SOL_CONTRACT_CHECK', provider: 'sol' },
-  'ROUTE_SOL_DIAGNOSE': { model: 'sol-xhigh', role: 'SOL_DIAGNOSE', provider: 'sol' },
-  'ROUTE_SOL_FINAL_REVIEW': { model: 'sol-xhigh', role: 'SOL_FINAL_REVIEW', provider: 'sol' },
-  'ROUTE_SOL_RECHECK': { model: 'sol-xhigh', role: 'SOL_RECHECK', provider: 'sol' },
+  'ROUTE_SOL_CONTRACT_CHECK': { model: CODEX_SOL_MODEL, role: 'SOL_CONTRACT_CHECK', provider: 'pi' },
+  'ROUTE_SOL_DIAGNOSE': { model: CODEX_SOL_MODEL, role: 'SOL_DIAGNOSE', provider: 'pi' },
+  'ROUTE_SOL_FINAL_REVIEW': { model: CODEX_SOL_MODEL, role: 'SOL_FINAL_REVIEW', provider: 'pi' },
+  'ROUTE_SOL_RECHECK': { model: CODEX_SOL_MODEL, role: 'SOL_RECHECK', provider: 'pi' },
 });
 
 /** States in which the SOL final-review/recheck outcome is the only decision input. */
@@ -165,7 +170,11 @@ function contractCauseRefs(ctx) {
 
 function isOpenFindingRecheckDue(ctx) {
   const findings = Array.isArray(ctx.solFindings) ? ctx.solFindings : [];
-  return findings.find(
+  const selected = typeof ctx.activeFindingId === 'string'
+    ? findings.find((finding) => finding?.findingId === ctx.activeFindingId)
+    : null;
+  const candidates = selected === undefined || selected === null ? findings : [selected];
+  return candidates.find(
     (f) =>
       f?.status === 'OPEN' &&
       Number.isInteger(f.repairCycles) &&
@@ -175,14 +184,23 @@ function isOpenFindingRecheckDue(ctx) {
   );
 }
 
+function openAuthoritativeFindings(ctx) {
+  return (Array.isArray(ctx.solFindings) ? ctx.solFindings : [])
+    .filter((finding) => finding?.status === 'OPEN');
+}
+
 function failNoSubstituteDecision(ctx, err) {
   const reason = err instanceof ProviderDiscoveryError ? (err.details?.reason ?? null) : null;
-  if (reason === 'ENDPOINT_NOT_CONFIGURED') {
+  if (reason === 'ENDPOINT_NOT_CONFIGURED' || reason === 'CODEX_OAUTH_UNAVAILABLE') {
     return emit(ctx, {
       decision: 'FAIL_NO_SUBSTITUTE',
-      reasonCode: 'PROVIDER_UNAVAILABLE',
+      reasonCode: reason === 'CODEX_OAUTH_UNAVAILABLE' ? 'CODEX_OAUTH_UNAVAILABLE' : 'PROVIDER_UNAVAILABLE',
       event: 'PROVIDER_UNAVAILABLE',
-      causeRefs: ['discovery:endpoint-not-configured'],
+      causeRefs: [
+        ...(reason === 'CODEX_OAUTH_UNAVAILABLE'
+          ? ['discovery:codex-oauth-unavailable']
+          : ['discovery:endpoint-not-configured']),
+      ],
     });
   }
   return emit(ctx, {
@@ -226,13 +244,81 @@ function emit(ctx, { decision, reasonCode, event, target = null, justification =
 }
 
 /**
- * SOL route emission: exact sol-xhigh discovery FIRST (SOL-S05-003), then
- * emit. Unavailable/invalid fails closed with FAIL_NO_SUBSTITUTE.
+ * SOL route emission (2.1, fifth-review repair): the ONLY authoritative
+ * automatic SOL channel is the strict Codex transport gate — gpt-5.6-sol
+ * on provider 'pi' (Pi native openai-codex OAuth) at XHIGH. The classic
+ * sol-xhigh execution branch has NO production authority: configuring the
+ * legacy endpoint fails closed with an explicit routing error (no route
+ * record is produced), never a silent classic route. A configured
+ * `sol.command` can never masquerade as the codex channel: production
+ * gpt-5.6-sol review authority belongs exclusively to the controller-side
+ * Pi transport (fixtures use the explicit controller-owned transport
+ * seam), so the codex channel with a sol.command configured fails closed
+ * at routing.
  */
 function emitSol(ctx, decision, reasonCode, event, causeRefs) {
-  const target = SOL_TARGETS[decision];
+  // SOL-S11-002: local-command SOL authority is REMOVED from production
+  // routing. A repository-configured sol.command can never grant SOL
+  // decision authority. The only way a local command may serve a SOL role
+  // is the capability-gated controller-internal test seam
+  // (`runController({ solCommand, testCapability })`), which the
+  // orchestrator marks non-authoritative (it can never produce
+  // REVIEW_APPROVED) and marks its controller-created routing object in a
+  // module-private WeakSet. Project JSON cannot carry or forge that object
+  // identity, so a repository can never mint local SOL authority.
+  const localSolCommand = ctx.config?.sol?.command ?? null;
+  const seamAuthorized = isSolFixtureRoutingConfig(ctx.config);
+  if (localSolCommand !== null && !seamAuthorized) {
+    throw new SolCommandMasqueradeError(
+      'a configured sol.command cannot masquerade as an automatic SOL review channel (repository-configured/local sol.command has no SOL decision authority; production semantic review requires the controller-side Pi openai-codex transport) — routing fails closed',
+      { reason: 'SOL_COMMAND_MASQUERADE' },
+    );
+  }
+  const role = SOL_TARGETS[decision].role;
+  let channel;
   try {
-    discoverSolRoute(target.role, ctx.config ?? {});
+    channel = resolveSolChannel(ctx.config ?? {});
+  } catch (err) {
+    if (err instanceof ProviderDiscoveryError && err.details?.reason === 'SOL_CHANNEL_CLASSIC_NO_AUTHORITY') {
+      // A legacy classic-only/classic-including configuration is a
+      // controller config error, never a capability gap: fail closed with
+      // an explicit RoutingError (no route record is produced). The
+      // classic sol-xhigh channel has no production authority in 2.1 and
+      // can never bypass the strict Codex transport gate.
+      throw new RoutingError(
+        `the classic sol-xhigh channel has no production SOL authority in 2.1 (only the strict openai-codex / gpt-5.6-sol / XHIGH transport gate routes automatic SOL); remove endpoints.${CLASSIC_SOL_MODEL} and configure endpoints.${CODEX_SOL_MODEL} — routing fails closed`,
+        { reason: 'SOL_CHANNEL_CLASSIC_NO_AUTHORITY' },
+      );
+    }
+    if (err instanceof ProviderDiscoveryError) return failNoSubstituteDecision(ctx, err);
+    throw err;
+  }
+  if (channel === null) {
+    return emit(ctx, {
+      decision: 'FAIL_NO_SUBSTITUTE',
+      reasonCode: 'PROVIDER_UNAVAILABLE',
+      event: 'PROVIDER_UNAVAILABLE',
+      causeRefs: ['discovery:endpoint-not-configured'],
+    });
+  }
+  if (channel === 'codex' && ctx.config?.sol?.command !== null && ctx.config?.sol?.command !== undefined) {
+    // A repository/CLI sol.command can never impersonate the production
+    // openai-codex / gpt-5.6-sol review channel. This branch is normally
+    // unreachable (the seam-authorized local command above is refused on
+    // the codex channel); it remains as defense in depth.
+    throw new SolCommandMasqueradeError(
+      'a configured sol.command cannot masquerade as the gpt-5.6-sol codex SOL channel (production review authority requires the controller-side Pi openai-codex transport); remove sol.command or the codex endpoint — routing fails closed',
+      { reason: 'SOL_COMMAND_MASQUERADE' },
+    );
+  }
+  let target;
+  try {
+    discoverSolCodexRoute(role, ctx.config ?? {});
+    assertCodexOAuthAvailable({ env: ctx.environment });
+    // Exactly the strict Codex transport gate: openai-codex / gpt-5.6-sol
+    // / XHIGH — every 2.1 SOL role (CONTRACT_CHECK, DIAGNOSE,
+    // FINAL_REVIEW, RECHECK) goes through the same gate.
+    target = { model: CODEX_SOL_MODEL, role, provider: 'pi', reasoning: 'XHIGH' };
   } catch (err) {
     if (err instanceof ProviderDiscoveryError) return failNoSubstituteDecision(ctx, err);
     throw err;
@@ -307,9 +393,46 @@ function recheckHasFinalReviewProvenance(ctx, review) {
  *   from diagnose or ordinary repair. For HIGH_RISK work a generic recheck
  *   PASS cannot prove the mandatory SOL FINAL_REVIEW occurred: without
  *   final-review provenance the unit routes to ROUTE_SOL_FINAL_REVIEW. With
- *   provenance (recheck of a FINAL_REVIEW finding) it completes.
+ *   provenance (recheck of a FINAL_REVIEW finding) it completes — but ONLY
+ *   once every authoritative defect is closed (fifth-review rule):
+ *   - an open defect that survived its recheck (rechecks >= 1) is STUCK
+ *     and blocks completion;
+ *   - an open defect that was never repaired yet (repairCycles === 0)
+ *     routes to the next bounded repair (one defect at a time);
+ *   - completion/REVIEW_APPROVED is forbidden while ANY accepted adjacent
+ *     critical defect (or ordinary finding) remains open.
  */
 function handleReviewPassed(ctx, facts, review) {
+  const open = openAuthoritativeFindings(ctx);
+  if (open.length > 0) {
+    if (ctx.state === 'AWAITING_SOL_FINAL_REVIEW') {
+      throw new RoutingError(
+        `a passing final review cannot leave authoritative defects open (${open.map((finding) => finding.findingId).join(', ')}); the response contract forbids PASS with findings`,
+        { findingIds: open.map((finding) => finding.findingId) },
+      );
+    }
+    // AWAITING_SOL_RECHECK: the active finding just passed its recheck.
+    const survived = open.find((finding) => Number.isInteger(finding.rechecks) && finding.rechecks >= 1);
+    if (survived !== undefined) {
+      // An authoritative defect that survived one repair AND its recheck
+      // is controller-owned STUCK; completion stays blocked.
+      return emit(ctx, {
+        decision: 'STOP_STUCK',
+        reasonCode: 'SOL_FINDING_SURVIVES_ONE_REPAIR',
+        event: 'STUCK',
+        causeRefs: [`finding:${survived.findingId}`, 'review:finding-survived-recheck'],
+      });
+    }
+    // Remaining open defects were never repaired: route the next bounded
+    // repair (one defect at a time). Completion remains blocked until
+    // every authoritative defect is explicitly resolved or STUCK.
+    return implementationRoute(ctx, {
+      role: 'REPAIR',
+      reasonCode: 'REPAIR_TARGETED_FIRST',
+      event: 'FAILURE_FIRST_CREDIBLE',
+      causeRefs: [...open.map((finding) => `finding:${finding.findingId}`), 'review:next-open-defect-repair'],
+    });
+  }
   if (ctx.state === 'AWAITING_SOL_FINAL_REVIEW') {
     return emit(ctx, {
       decision: 'ROUTE_COMPLETE',

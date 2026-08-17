@@ -34,9 +34,10 @@ test('CONTRACT_REVIEW_REQUIRED (high-risk unresolved) routes to SOL contract che
   const decision = decideRoute(makeCtx({ semanticContract: contract, decidedAt: NOW }));
   assert.equal(decision.decision, 'ROUTE_SOL_CONTRACT_CHECK');
   assert.equal(decision.reasonCode, 'UNRESOLVED_HIGH_RISK_CONTRACT');
-  assert.equal(decision.targetModel, 'sol-xhigh');
+  assert.equal(decision.targetModel, 'gpt-5.6-sol');
   assert.equal(decision.targetRole, 'SOL_CONTRACT_CHECK');
-  assert.equal(decision.targetProvider, 'sol');
+  assert.equal(decision.targetProvider, 'pi');
+  assert.equal(decision.reasoningLevel, 'XHIGH');
   assert.equal(decision.nextState, 'AWAITING_SOL_CONTRACT_CHECK');
   assert.ok(decision.evidenceRefs.some((r) => r.startsWith('contract:route.contract')));
 });
