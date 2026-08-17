@@ -120,6 +120,19 @@ function brokerPiCommand({ model, reasoning, role }) {
 }
 
 /**
+ * Resolve a provider-role timeout from normalized project configuration.
+ * The project config loader already validates and bounds these values
+ * (worker/sol defaults 300_000/120_000, bounds 100..1_800_000); this guard
+ * only falls back when a caller-constructed config lacks a valid value and
+ * never invents an unbounded timeout. The constrained runners re-enforce
+ * the same bounds at invocation time.
+ */
+function configuredTimeoutMs(projectConfig, section, fallback) {
+  const value = projectConfig?.[section]?.timeoutMs;
+  return Number.isSafeInteger(value) && value >= 1 ? value : fallback;
+}
+
+/**
  * V2.0.1: the GPT-5.6 Sol codex command is built by the controller-side
  * SOL transport (src/controller/sol-transport.mjs): canonical absolute
  * node+Pi entrypoint (never unqualified `pi`), zero-tool model surface
@@ -264,9 +277,7 @@ export async function invokeBoundedProvider({ boundary, projectConfig, repoDir, 
     command = spec.command;
     args = [...spec.args, prompt];
     input = '';
-    timeoutMs = Number.isSafeInteger(projectConfig?.sol?.timeoutMs) && projectConfig.sol.timeoutMs >= 1
-      ? projectConfig.sol.timeoutMs
-      : spec.timeoutMs;
+    timeoutMs = configuredTimeoutMs(projectConfig, 'sol', spec.timeoutMs);
     const run = runner === null ? (transport, options) => runSolPiProcess({ ...options, transport }) : runner;
     result = await run(solTransport, {
       command,
@@ -293,6 +304,16 @@ export async function invokeBoundedProvider({ boundary, projectConfig, repoDir, 
     if (typeof invocationId !== 'string' || invocationId.length === 0) {
       throw new ProviderBrokerError('default Pi provider transport requires the canonical invocation identity; provider invocation fails closed', { model, role });
     }
+    // SOL-S11-002 mirror: a caller-supplied runner is a controller-internal
+    // test seam. It is honored ONLY under an opaque consumed
+    // non-authoritative test-run authority; a production broker invocation
+    // carrying a runner fails closed before any capability registration.
+    if (runner !== null && !isSolTestRunAuthority(solTestAuthority)) {
+      throw new ProviderBrokerError(
+        'a caller-supplied provider runner is a controller-internal test seam and requires opaque consumed non-authoritative test-run authority; production provider invocation fails closed',
+        { model, role },
+      );
+    }
     // Permission-gated, invocation-time route authorization: resolves the
     // controller credential and pins the exact upstream for THIS invocation.
     const routeSpec = resolveBrokerRoute({ role, model, endpoint: endpointForModel(projectConfig, model), env });
@@ -309,9 +330,14 @@ export async function invokeBoundedProvider({ boundary, projectConfig, repoDir, 
     command = spec.command;
     args = [...spec.args, prompt];
     input = '';
-    timeoutMs = spec.timeoutMs;
+    // The project worker timeout is authoritative on the default brokered
+    // WORKER route (the loader already bounded it); the classic SOL broker
+    // branch keeps its own bounded default and never inherits the worker
+    // timeout.
+    timeoutMs = role === 'WORKER' ? configuredTimeoutMs(projectConfig, 'worker', spec.timeoutMs) : spec.timeoutMs;
+    const run = runner === null ? (bnd, options) => runConstrainedProcess(bnd, options) : runner;
     try {
-      result = await runConstrainedProcess(boundary, {
+      result = await run(boundary, {
         command,
         args,
         input,

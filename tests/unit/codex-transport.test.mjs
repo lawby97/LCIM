@@ -43,7 +43,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { invokeBoundedProvider } from '../../src/controller/provider.mjs';
+import { commandForRoute, invokeBoundedProvider } from '../../src/controller/provider.mjs';
+import { loadProjectConfig } from '../../src/project/config.mjs';
+import { makeGitRepo, writeFixtureFile } from '../helpers/git-fixture.mjs';
 import {
   PI_CONTROLLER_CONFIG_ENV,
   SOL_TRANSPORT_SCHEMA_VERSION,
@@ -1076,4 +1078,173 @@ test('computeFileIdentity is a stable pin and rejects non-files', (t) => {
 
 test('the transport schema version is 1.4.0 (durable identity-bound marker/evidence shape)', () => {
   assert.equal(SOL_TRANSPORT_SCHEMA_VERSION, '1.4.0');
+});
+
+// ---------------------------------------------------------------------------
+// LCIM-202 — the configured project worker timeout is authoritative on the
+// default brokered Pi route
+// ---------------------------------------------------------------------------
+
+/** Fake controller-owned broker listener for the default Pi route. */
+function fakeBrokerListener() {
+  const invocations = [];
+  const revoked = [];
+  return {
+    baseUrl: 'http://127.0.0.1:59999',
+    async registerInvocation(entry) {
+      invocations.push(entry);
+      return { token: `lcim-inv-token-${invocations.length}` };
+    },
+    async revokeInvocation() {
+      revoked.push(true);
+    },
+    invocations,
+    revoked,
+  };
+}
+
+/** Fake boundary carrying the broker allowance + a writable pi agent dir. */
+function brokerRouteBoundary(t) {
+  const piAgentDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lcim-broker-agent-'));
+  t.after(() => fs.rmSync(piAgentDir, { recursive: true, force: true }));
+  return {
+    networkPolicy: { broker: { port: 59999 } },
+    piAgentDir,
+  };
+}
+
+/**
+ * Run one default brokered WORKER invocation against the fake broker and
+ * boundary, capturing the constrained-process runner options. Never sleeps:
+ * the runner seam records the timeout instead of honoring it.
+ */
+async function invokeBrokeredWorker(t, { worker, onRun }) {
+  const authority = consumeSolTestSeam(mintSolTestSeam(), 'unit fixture brokered worker');
+  const boundary = brokerRouteBoundary(t);
+  const broker = fakeBrokerListener();
+  let captured = null;
+  const runner = async (boundaryArg, options) => {
+    captured = { boundary: boundaryArg, options };
+    return { status: 0, stdout: '{}', stderr: '', processCompleted: true, pid: 5, durationMs: 1 };
+  };
+  const result = await invokeBoundedProvider({
+    boundary,
+    projectConfig: {
+      worker: { command: null, args: [], ...(worker ?? {}) },
+      sol: { command: null, args: [], timeoutMs: 120_000 },
+      endpoints: { 'deepseek-v4-flash': { baseUrl: 'https://api.deepseek.example', kind: 'external' } },
+    },
+    repoDir: os.tmpdir(),
+    model: 'deepseek-v4-flash',
+    reasoning: 'XHIGH',
+    role: 'WORKER',
+    prompt: 'LCIM-202 fixture worker prompt',
+    broker,
+    invocationId: 'lcim_inv_202_fixture',
+    runner,
+    solTestAuthority: authority,
+    env: { DEEPSEEK_API_KEY: 'fixture-controller-key' },
+  });
+  onRun({ captured, boundary, broker, result });
+}
+
+test('LCIM-202/A: the default brokered WORKER route passes projectConfig.worker.timeoutMs to the constrained-process runner', async (t) => {
+  let captured = null;
+  let boundary = null;
+  let broker = null;
+  let result = null;
+  await invokeBrokeredWorker(t, {
+    worker: { timeoutMs: 900_000 },
+    onRun: ({ captured: cap, boundary: bnd, broker: brk, result: res }) => {
+      captured = cap;
+      boundary = bnd;
+      broker = brk;
+      result = res;
+    },
+  });
+  assert.equal(captured.options.timeoutMs, 900_000, 'the configured worker timeout must reach the constrained-process runner');
+  // The default brokered Pi route shape is unchanged: controller-selected
+  // `pi` argv through the broker provider, prompt on stdin.
+  assert.deepEqual(captured.options.command, ['pi']);
+  assert.ok(captured.options.args.includes('--provider'));
+  assert.ok(captured.options.args.includes('deepseek-v4-flash'));
+  assert.equal(captured.options.input, '');
+  assert.equal(captured.options.args.at(-1), 'LCIM-202 fixture worker prompt', 'the rendered prompt is the trailing argv item on the default Pi route');
+  assert.equal(captured.boundary, boundary);
+  // Broker isolation is unchanged: one invocation-scoped capability
+  // registered and revoked, and only the invocation token reached the
+  // sandbox-visible pi agent config.
+  assert.equal(broker.invocations.length, 1);
+  assert.equal(broker.revoked.length, 1);
+  const modelsJson = JSON.parse(fs.readFileSync(path.join(boundary.piAgentDir, 'models.json'), 'utf8'));
+  assert.equal(modelsJson.providers.lcim.apiKey, 'lcim-inv-token-1');
+  assert.equal(result.provider, 'pi');
+  assert.equal(result.role, 'WORKER');
+});
+
+test('LCIM-202/B: the default brokered WORKER route retains 300000 for the normal project timeout', async (t) => {
+  let captured = null;
+  await invokeBrokeredWorker(t, {
+    worker: { timeoutMs: 300_000 },
+    onRun: ({ captured: cap }) => {
+      captured = cap;
+    },
+  });
+  assert.equal(captured.options.timeoutMs, 300_000, 'projects without a timeout override keep the existing 300000 default');
+});
+
+test('LCIM-202: a caller-supplied runner on the brokered route fails closed without the opaque test-run authority', async (t) => {
+  const boundary = brokerRouteBoundary(t);
+  const broker = fakeBrokerListener();
+  const runner = async () => ({ status: 0, stdout: '{}', stderr: '', processCompleted: true });
+  await assert.rejects(
+    invokeBoundedProvider({
+      boundary,
+      projectConfig: {
+        worker: { command: null, args: [], timeoutMs: 300_000 },
+        sol: { command: null, args: [], timeoutMs: 120_000 },
+        endpoints: { 'deepseek-v4-flash': { baseUrl: 'https://api.deepseek.example', kind: 'external' } },
+      },
+      repoDir: os.tmpdir(),
+      model: 'deepseek-v4-flash',
+      reasoning: 'XHIGH',
+      role: 'WORKER',
+      prompt: 'LCIM-202 fixture worker prompt',
+      broker,
+      invocationId: 'lcim_inv_202_fixture',
+      runner,
+      env: { DEEPSEEK_API_KEY: 'fixture-controller-key' },
+    }),
+    (err) => err instanceof ProviderBrokerError && /controller-internal test seam/.test(err.message),
+  );
+  assert.equal(broker.invocations.length, 0, 'no invocation capability may be registered before the runner gate');
+});
+
+test('LCIM-202/C: a configured worker command keeps its configured timeout (command route unchanged)', () => {
+  const spec = commandForRoute({
+    projectConfig: {
+      worker: { command: ['node', 'fixture-worker.cjs'], args: [], timeoutMs: 900_000 },
+      sol: { command: null, args: [], timeoutMs: 120_000 },
+      endpoints: {},
+    },
+    repoDir: os.tmpdir(),
+    model: 'deepseek-v4-flash',
+    reasoning: 'XHIGH',
+    role: 'WORKER',
+  });
+  assert.notEqual(spec, null, 'a configured worker command selects the command route, not the broker route');
+  assert.deepEqual(spec.command, ['node', 'fixture-worker.cjs']);
+  assert.equal(spec.timeoutMs, 900_000, 'the configured command timeout must pass through unchanged');
+});
+
+test('LCIM-202/E: out-of-range worker timeouts remain rejected by project config validation', async (t) => {
+  const repo = await makeGitRepo(t);
+  const raw = (timeoutMs) => JSON.stringify({ worker: { command: null, args: [], timeoutMs } });
+  writeFixtureFile(repo.root, '.lcim/project.json', raw(99));
+  assert.throws(() => loadProjectConfig({ cwd: repo.root }), ConfigError, 'a timeout below the 100 ms floor must be rejected');
+  writeFixtureFile(repo.root, '.lcim/project.json', raw(1_800_001));
+  assert.throws(() => loadProjectConfig({ cwd: repo.root }), ConfigError, 'a timeout above the 1_800_000 ms ceiling must be rejected');
+  writeFixtureFile(repo.root, '.lcim/project.json', raw(900_000));
+  const loaded = loadProjectConfig({ cwd: repo.root });
+  assert.equal(loaded.config.worker.timeoutMs, 900_000, 'an in-range configured timeout must load unchanged');
 });
