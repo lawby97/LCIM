@@ -1,5 +1,89 @@
 # LCIM
 
+> **LCIM 3.0 active-guidance notice.** The controlling protocol-3.0 plan is
+> [`docs/v2-sprints/00B_MASTER_PLAN_LCIM_3_0_CORE.md`](docs/v2-sprints/00B_MASTER_PLAN_LCIM_3_0_CORE.md).
+> The V2/2.0/2.1 operational description below is historical and
+> non-authoritative for protocol 3.0. LCIM 3.0 exclusively uses Pi
+> `deepseek-v4-flash` at thinking level `max` / policy reasoning `MAX` and
+> controller-owned Pi openai-codex `gpt-5.6-sol` at `XHIGH`; it permits no Pro
+> MAX, Luna, Terra, optional fallback, `STUCK`, or technical-no-progress outcome
+> for an actionable technical finding. One credit equals one actual upstream
+> request. Proposed development predicates are master §§7–8: adopted procedure,
+> actual qualified external tools and finite authorization before isolated Bootstrap
+> construction; G1 reviews that actual subject before separately authorized real
+> adoption; current G1/G3, task authorization and exact predecessor before C30
+> construction; full G2 after complete integration including relevant C30-14 closure.
+> Activation/use still requires all current applicable G1/G2/G3 and separate
+> operator authorization. No procedure adoption, tool readiness or construction
+> permission is granted. The requested Luna documentation edit is not a runtime
+> worker-role claim; future source implementation remains Flash/Sol.
+
+```text
+SIGNER_V4_CONTROLLER_ATTESTATION:
+BLOCKED_PENDING_STRONGER_MACOS_EXECUTABLE_ATTESTATION
+
+LCIM_3_0_SIGNER_GATE:
+REMOVED_BY_SCOPE_DECISION
+
+LCIM_3_1_EXTERNAL_OPERATOR_SIGNER:
+DEFERRED_TO_LCIM_3_1
+```
+
+LCIM 3.0 freezes exactly six public local families:
+`lcim.local-operator-session@1`, `lcim.local-plan-confirmation@1`,
+`lcim.local-budget-ceiling@1`, `lcim.local-consistency-witness@1`,
+`lcim.local-activation-settlement@1` and
+`lcim.manual-delivery-manifest@1`. Transaction-zero publishes exactly five
+candidates: four local-record candidates (budget, operator session, plan
+confirmation and activation settlement) plus one non-runnable protocol/run
+genesis candidate. The witness is the PREPARE/COMMIT protocol, not a candidate;
+the manual delivery manifest is emitted later by C30-14. A stale committed
+activation cannot reissue production capability; while capability is absent,
+C30-13 may use only the module-private one-action
+`SUCCESSOR_ACTIVATION_PUBLICATION_AUTHORITY` to publish exactly four successors
+(budget, operator session, plan confirmation and activation), with no new
+genesis. Initial issuance retains the still-current original TTY confirmation; successor
+issuance requires a current matching COMMIT, current-fact reverification/
+display and fresh controlling-TTY confirmation.
+
+Independent combined V8 review returned CHANGES_REQUIRED for G3-V8-P1-01 and
+SEQ-V8-P1-01. Targeted V9 below is a documentation amendment, not approval.
+Standalone Bootstrap support is required before C30-01; C30-11/12 integrate
+qualified support/consumers. External Start locks before resolving the current
+predecessor, admits source-only facts and uses external checkouts/qualified CAS.
+EXTERNAL_DEVELOPMENT_REVIEW source inputs are eligible under master §7.3, not
+runtime calls/accounting/capabilities. Actual tools/isolation/spend controls,
+Bootstrap contracts, closed review formats, final G2 closure and prohibited-live-
+evidence conflicts remain U1–U5; absence denies dependent phases.
+Master §§2.3/2.3C require private v2 publication manifests with inline retained
+prepared inputs and a fully populated staging-directory fsync. §2.5D is the
+single anchor/ancestor durability contract, including reused paths and confirmed
+exact-existing completion. §3.4C copies prepared ABANDON inputs from that
+capsule and current inputs from a separate verified observation; evidence must
+be durably persisted before the separate append. Eight/seven one-use actions
+remain (§4.5); initialization is genuine-first bootstrap only. A0 is read-only,
+evidence is never capability. G3-V7-P1-01 expands COMMIT to integer private
+observationVersion 3 with closed physical-ledger path/length/SHA prerequisite
+and both full existing path chains through U. Non-COMMIT remains integer 2.
+Under one matching C30-13 authority, pinned exact ledger-file/full-chain fsync
+must succeed, then facts/expiry reverify, before first witness COMMIT byte;
+ledger effects are fsync-only. Repeat after earlier success/restart with fresh
+authority; no bundle-derived ledger durability, duplicate COMMIT or ABANDON of
+matching ledger. That is the retained APPEND_ABSENT path. V9 §§2.5B/2.5D add
+required commitBranch COMPLETE_EXACT_EXISTING for readable complete COMMIT:
+fresh one-use authority fsyncs ledger/full chain before existing witness/full
+chain, ZERO bytes/records, before bundle/suffix flushes. Logical COMMITTED is not
+eligibility; exact same-session completion and all separate consumer checks are
+required. Exit/change loses knowledge; no historical writer proof/prior durability
+gates completion issuance. §6.2's post-change path adds qualified prepare before
+staging, separately authorized operator commit, verify, separate registry CAS
+and exact accepted-generation gate applicability/full G2 renewal for changed
+closure before successor authorization. Changed verifier qualifies before use;
+S'' invalidates again; no stale FINAL_REVIEW/G2 or build evidence substitutes.
+§15 is active V9 modeling; V5/V7/V8 counts/pins remain historical. Independent
+V8 verdict CHANGES_REQUIRED and unresolved parent G3-V7-P1-01 are preserved. G1/G2 pending, G3
+CHANGES_REQUIRED_PENDING_FRESH_REREVIEW; construction and runtime use BLOCKED.
+
 Low Cost Implementation Model — standalone LCIM V2 controller and CLI.
 
 ## Install
@@ -77,10 +161,11 @@ validates scope/tests/secret checks, and records controller dispositions.
 Worker status is communication only; it is never patch readiness, semantic
 acceptance, integration, or review approval.
 
-The normal implementation route is DeepSeek V4 Flash through Pi at `XHIGH`.
-DeepSeek Pro MAX is escalation-only and requires a machine-readable reason.
-Terra and Luna are not normal escalation rungs. Every actual provider call is
-wrapped by the canonical START/COMPLETION/ASSESSMENT invocation lifecycle.
+Historically in V2, the normal implementation route was DeepSeek V4 Flash
+through Pi at `XHIGH`, with Pro MAX escalation and other legacy routing
+concepts. Those routes are not active for protocol 3.0 and must not be used.
+Every historical provider call was wrapped by the canonical
+START/COMPLETION/ASSESSMENT invocation lifecycle.
 SOL is used only for a compiled, bounded decision contract with one question,
 explicit pass/fail conditions, bounded evidence, and an exact response shape.
 The four roles are CONTRACT_CHECK, DIAGNOSE, RECHECK, and FINAL_REVIEW.

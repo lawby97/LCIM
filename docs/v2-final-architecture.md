@@ -1,5 +1,36 @@
 # LCIM V2 final architecture (2.0.0 / 2.0.1)
 
+> **Historical/non-authoritative for protocol 3.0.** This file records released
+> V2 behavior only. Its XHIGH Flash, Pro MAX, fallback, bounded-repair, STUCK
+> and process-level invocation/accounting descriptions do not govern LCIM 3.0.
+> Protocol 3.0 is controlled by
+> `docs/v2-sprints/00B_MASTER_PLAN_LCIM_3_0_CORE.md` and uses only Pi
+> `deepseek-v4-flash` thinking `max` / policy reasoning `MAX` plus
+> controller-owned Pi openai-codex `gpt-5.6-sol` `XHIGH`, with one credit per
+> actual upstream request and repair-until-PASS. Its seventh G3 amendment
+> (§§2.3/2.3C/2.5D/3.4C) retains prepared inputs inline in private v2 manifests
+> and defines one fully-populated-directory/complete-ancestor durability
+> contract, including confirmed exact-existing completion. It adds no action
+> or V2 runtime writer. Eight/seven actions and evidence-before-ABANDON remain;
+> successor never initializes history. Combined V8 master §§2.5B/2.5D/4.5 expands
+> COMMIT to a closed private version-3 physical-ledger path/length/SHA prerequisite,
+> both full path chains and ledger-file/full-chain fsync before first witness byte;
+> non-COMMIT stays integer 2. Ledger effects are fsync-only, repeated on recovery,
+> never inferred from bundle completion. V9 §§2.5B/2.5D add closed commitBranch
+> COMPLETE_EXACT_EXISTING: fresh authority, ledger-then-existing-witness/full-chain
+> fsync, ZERO bytes/records, before bundle/suffix flushes; same-session knowledge
+> and separate consumer checks, never logical COMMITTED alone, gate use.
+> §6.2 adds recurring accepted checkpoint/generation-bound gate requalification
+> before post-BL successor authorization; FINAL_REVIEW is not G2. §15 models V9;
+> prior V5/V7/V8 results remain historical; V8 verdict CHANGES_REQUIRED stands. Master §§7–8 replace
+> blanket G2-before-construction with adopted external procedure/tools/finite
+> authorization, Bootstrap construction then G1/real adoption, current G1/G3 and
+> exact predecessor for ordered C30 development, final G2 after complete integration
+> including C30-14, and all applicable approvals before separately authorized use.
+> EXTERNAL_DEVELOPMENT_REVIEW is eligible source qualification, not runtime
+> capability/accounting. U1–U5 remain unresolved; G1/G2 pending and G3
+> CHANGES_REQUIRED_PENDING_FRESH_REREVIEW. No construction or activation is granted.
+
 Status: Sprint 11 stable-release evidence complete (`2.0.0`). `2.0.1` adds
 the automatic GPT-5.6 Sol codex SOL channel (Pi native `openai-codex`
 OAuth) — see [`v2-codex-sol-oauth.md`](v2-codex-sol-oauth.md). This is the

@@ -1,5 +1,43 @@
 # LCIM V2 Deterministic Model Routing and Escalation (Sprint 05)
 
+> **Historical/non-authoritative for protocol 3.0.** Every route, fallback,
+> escalation, bounded-repair, STUCK, process-call budget and terminal-state
+> rule below describes V2/2.0/2.1 only. LCIM 3.0 is controlled exclusively by
+> `docs/v2-sprints/00B_MASTER_PLAN_LCIM_3_0_CORE.md`: Pi
+> `deepseek-v4-flash`, thinking `max`, policy reasoning `MAX`; controller-owned
+> Pi openai-codex `gpt-5.6-sol` `XHIGH`; no Pro MAX/Luna/Terra/optional
+> fallback; one credit per actual upstream request; actionable technical repair
+> through exact RECHECK and complete FINAL_REVIEW until PASS.
+>
+> **Combined V8 boundary:** master §§7–8 distinguish conditional external
+> development from qualified runtime use. Standalone Bootstrap construction
+> precedes its G1 review; real adoption follows G1 and separate authorization;
+> C30 development uses current G1/G3, adopted procedure/qualified tools, exact
+> task authorization and current predecessor, not prior G2. Full G2 follows
+> complete integration/relevant C30-14 closure; activation/use requires all
+> current applicable approvals and separate authorization. External independent
+> Flash/Sol source reviews use EXTERNAL_DEVELOPMENT_REVIEW provenance and
+> qualified acceptance, not runtime Sol/finding/accounting/capability events.
+> Candidate tests are isolated synthetic/local mocks; external model requests
+> need separately accepted tools/isolation and enforceable finite upstream-request/
+> spend controls, not manual Pi/session counts. U1–U5 remain unresolved.
+> This requested Luna documentation edit does not authorize Luna as a runtime
+> implementation worker. G1/G2 pending; G3 CHANGES_REQUIRED_PENDING_FRESH_REREVIEW.
+> Runtime COMMIT separately follows amended master §§2.5B/2.5D/4.5: closed
+> version-3 physical-ledger byte/path binding and ledger/file/full-chain fsync
+> before witness append, with fresh authority/repetition after restart.
+> Non-COMMIT remains integer 2; no runtime action or public family is added.
+> V9 §§2.5B/2.5D add required commitBranch COMPLETE_EXACT_EXISTING for complete
+> COMMIT: fresh one-use ledger-then-witness fsync-only completion, ZERO bytes/
+> records, before bundle/suffix flushes. Logical COMMITTED is not eligibility;
+> exact same-session completion plus current qualification/facts/TTY is required.
+> §6.2's post-BL/source-change path uses authorized external review without stale
+> runtime capability, qualified prepare before staging, operator commit, verify,
+> separate registry CAS and accepted-generation gate applicability/full G2 renewal
+> for changed closure before successor authorization. Changed verifier qualifies
+> before use; FINAL_REVIEW is not G2; uncertain carry denies and S'' repeats.
+> These are future requirements only; U1–U5 and G1/G2/G3 statuses stay unmet.
+
 Status: implemented by Sprint 05 (see `docs/v2-sprints/SPRINT_05_ROUTING.md`),
 with the SOL-S05-001..005 repair integrated. Sprint 11 fault and E2E tests
 exercise the policy in the `2.0.0` stable release; see
