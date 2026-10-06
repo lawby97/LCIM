@@ -109,4 +109,4 @@ None. This unit did not change `src/shared/**` or `schemas/common/**`.
 
 ## Repository safety and publication
 
-Implementation workers performed no commit, push, merge, pull request, credential change, publication, or activation. No secrets, environment files, raw transcripts, private review packets, local escalation records, or runtime evidence are included. The user authorized the operator integration step to commit and push after final tests, safety checks, documentation audit, and review of the staged public diff.
+Implementation workers performed no commit, push, merge, pull request, credential change, publication, or activation. No secrets, environment files, raw transcripts, private review packets, local escalation records, or runtime evidence are included. After the final tests, safety checks, documentation audit, and staged public-diff review passed, the operator committed the completed unit as `77415a81fdc73cb20e3d971e0b447565a8d53c58` and pushed branch `codex/lcim-u2-record-store-source-stage` to `origin`.

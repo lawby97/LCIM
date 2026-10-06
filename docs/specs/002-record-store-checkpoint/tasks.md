@@ -61,4 +61,4 @@ tags:
 - [x] Update the [project state](../../project/current-state.md), [delivery plan](../../project/delivery-plan.md), [evidence register](../../project/observations.md), [operations guide](../../project/operations.md), and [overview](../../project/overview.md).
 - [x] Record the future blocked-flow user prompt and configurable retry requirement in [Decisions and authority](../../project/decisions.md).
 - [x] Run final source tests, repository safety checks, and OpenKnowledge audit.
-- [ ] Commit and push the completed unit through the operator integration step.
+- [x] Commit and push the completed unit through the operator integration step (`77415a81fdc73cb20e3d971e0b447565a8d53c58`).
