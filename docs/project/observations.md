@@ -171,3 +171,41 @@ The accepted parser checkpoint was re-run locally with Node v22.19.0 using `/usr
 The OpenKnowledge audit scanned 71 documents and reported zero broken links. Its enabled family was `links`; project Markdown lint was not enabled.
 
 A broader `npm test` diagnostic exposed pre-existing environment-dependent failures in V2 audit, Pi OAuth transport, process-table, runtime-lock, and end-to-end tests. It was interrupted after the owner-lock test remained active beyond 140 seconds. The broader diagnostic did not change any file and does not invalidate the focused qualified and local 190-test parser results. The [completion report](../specs/001-bootstrap-parser-completion/completion-report.md) records the validation boundary.
+
+## 2026-10-06 record-store checkpoint completion
+
+This is a sanitized first-hand session record. Private evidence remains under the operator's external qualification directory and is not copied into the public repository. The accepted source is `src/source-checkpoint/record-store.mjs`, 44,805 bytes, regular single-link mode 0644, SHA-256 `1ee6ee1c17a3eee305411a7368ba68684f7f6603c65552848d58280b3d9ed5fb`. The candidate branch is `codex/lcim-u2-record-store-source-stage` at head `cf5e0c689404aaaf781f980c514b597aae900b06`, tree `8e5c58e361a91d5b1e3120963c48b5917a5cc7e6`.
+
+The record store adds confined content-addressed paths, canonical persistence, descriptor-anchored exclusive no-follow staging, same-filesystem hard-link publication, exact-existing verification, bottom-up durability fsyncs, and no-follow verified reads. It retains primary failures together with close failures. The final repair specifically preserves a post-anchor `ERR_STAT_FAILED` before an injected child-close error inside a non-enumerable two-error `AggregateError`.
+
+| Retained evidence | SHA-256 | Result |
+| --- | --- | --- |
+| Execution 209 immutable Flash packet manifest | `d49ba9ee968ddb73a7fda0365fad7f8cf41583898b23cf65d4bc4c9d894fcdd4` | Independent packet PASS before one Flash MAX request |
+| Execution 209 implementation result | `4181db6e45a5611b2ffc22ca4955680a3f21d3989e6625234e656ab7daf3ba3e` | One localized candidate hunk; target unchanged; grant exhausted |
+| Execution 209 independent result review | `52d091dd35adce2146220a0a940bfedce879dcc201415acc2a1a3912c53ae922` | PASS; promotion authorized |
+| Execution 210 promotion packet manifest | `3f17c7d693b65ad82a8ac00d7a5c69c4929cca7c54d543f32fc8f81ff44479b2` | Immutable predecessor rejected before execution |
+| Execution 210 independent packet review | `50d0a5fb4ce1e5c962e9ced27e9af563fa90e8a8bfecbddb8c4512f7d087effa` | FAIL: acceptance-kind/controller mismatch; zero effects |
+| Execution 211 promotion packet manifest | `836305477ac3ff55c08b9e7fcf80db0163438f106e4e94d9a29c69798bc38422` | Corrected immutable successor |
+| Execution 211 independent packet acceptance | `d54fe220d8c666ed1f1363d81669f8ae6d08a216645252699e9159ca211a0399` | PASS |
+| Execution 211 promotion result | `c016395bc002972d6a80cd0cb5ed6889a2eb1ac2b44950efd13880f0565e195b` | PASS; one mutation, no rollback, zero provider requests |
+| Execution 211 independent result review | `db2999393714c1d1c45838b872e8ab3c55c4d3d532bd23b4fae82bd98bbe7db9` | PASS; integration authorized |
+| Execution 212 SOL packet manifest | `df601e65ce52e257fd2f20af0ab6a69b166ff812b6900d254000a381ee6eef39` | One-question exact-source OAuth packet |
+| Execution 212 independent packet acceptance | `987ca5d96427f4a7deb9506638e847942416edae9dae74cd0cd30d7ae8682add` | PASS before grant creation |
+| Execution 212 dispatch binding | `25085564910832301040161ca25cb2bd4f9463b5cf79c061132854c836081be4` | One OAuth `gpt-5.6-sol` XHIGH request; decision PASS |
+| Execution 212 independent result review | `5b900785a67ba35d8f219780bda8889160f16d1db405749b072e6a24bbd857a4` | PASS; integration authorized |
+
+Execution 211 validated the exact candidate in an isolated Git archive before promotion and repeated the same checks on the target. Both nine-file source-checkpoint suites passed 190 tests with zero failures. Syntax, the focused finding probe, the Darwin descriptor-anchor probe, the outer cleanup-close aggregation probe, the post-anchor dual-failure probe, and the finalization/replay probe passed in both trees. The promotion performed one atomic source mutation, no rollback, no provider request, and complete cleanup.
+
+Execution 212 consumed exactly one OAuth SOL slot. The grant digest is `ba58dde16b872d3232879c5908f345c903f178b756701250da9bc391ff14c6a4`; consumed-slot digest `6e631f78f119eccbb2ad147617766c56ab4ee1ab346a146b3068b713dfccb5dd`; response artifact digest `0ef301d6b7a8d4e28b53f7ee3c2edfbf907c9fb9804d2e7fdc6090caf5ae0851`. The grant ended with one consumed slot and zero remaining. There was no retry, fallback, second fetch, tool call, API-key billing, paid-credit purchase, automatic top-up, or reset redemption.
+
+Execution 209's one-slot DeepSeek Flash grant reserved at most 472,186,880 nanoUSD. The retained cumulative conservative additional DeepSeek reservation was 2,849,341,440 nanoUSD, below the 20,000,000,000 nanoUSD ceiling. Cost did not create an extra permission stop, and no purchase or top-up was authorized.
+
+An operator preflight invocation with an inherited shell environment failed before mutation with `CONTROLLER_ENV_KEYS`. The same immutable Execution 211 controller passed when invoked with its required clean environment. No provider request, grant, credential read, or source mutation occurred during the failed diagnostic invocation.
+
+Execution 207 rejected a reviewer-identity construction mismatch before review, and Execution 208 denied an incomplete exhausted-grant overlap map at preflight. Both were zero-effect predecessors. Their immutable history remains external. The current unit's public completion documents are the [record-store specification](../specs/002-record-store-checkpoint/spec.md) and [completion report](../specs/002-record-store-checkpoint/completion-report.md).
+
+No stable file under `src/shared/**` or `schemas/common/**` changed. No interface-change request was required. Workers made no commit, push, merge, pull request, credential change, publication, or activation.
+
+Execution 213 records the controller-owned final decision. Its read-only `CONTROLLER_DISPOSITION.json` has SHA-256 `0b2696f500377d577860288a27c622d3bbbe1ec0ddf75d7fd1bfe5b1008e76e4` and decides `PATCH_VALID: PASS`, `SEMANTICALLY_ACCEPTED: PASS`, `CANDIDATE_INTEGRATED: PASS`, and `REVIEW_APPROVED: PASS`. It authorizes public-safe repository integration of this record-store unit and does not claim the complete LCIM MVP or release activation.
+
+Final local validation repeated the nine-file source-checkpoint suite: 190 tests passed with zero failures. The focused public-safety and secret checks passed 4 of 4. The OpenKnowledge project audit examined 75 documents and reported zero errors and zero warnings with the `links` family enabled. A broader `npm test` diagnostic encountered the repository's existing macOS Seatbelt, credential-isolation, OAuth-transport, runtime-lock, audit, and end-to-end environment failures; after visible assertions completed, owner-lock processes kept the runner open without output for more than 90 seconds and the operator interrupted it. That diagnostic is recorded as an environment limitation and is not used as this unit's acceptance gate.

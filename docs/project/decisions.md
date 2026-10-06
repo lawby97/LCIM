@@ -41,9 +41,9 @@ Failed, empty, interrupted, or uncertain physical requests remain consumed. A re
 
 ## Continuation behavior
 
-The controller may retry the same surviving issue up to three times when the active authorization and grant allow it. Every retry must use retained evidence, preserve the failed history, and reapply writer, validation, review, budget, and currentness gates.
+The controller may retry the same surviving issue only when the active authorization and grant allow it. The user-facing default maximum is three, the user may enter a lower retry count, and no same-issue flow may exceed three attempts. Every retry must use retained evidence, preserve the failed history, and reapply writer, validation, review, budget, and currentness gates.
 
-When the retry limit is reached or a finding survives, the future user interface should show the evidence and prompt the user to choose among correcting the contract, changing permitted scope, supplying authoritative information, accepting the limitation, abandoning the candidate, or starting a materially different work unit with fresh authority.
+When the retry limit is reached or a finding survives, the future user interface must show the evidence and prompt the user to choose among correcting the contract, changing permitted scope, supplying authoritative information, accepting the limitation, abandoning the candidate, or starting a materially different work unit with fresh authority. The prompt must also show the remaining retry allowance and let the user choose how many of those retries to authorize.
 
 The user has authorized autonomous continuation for this goal when the only possible question is cost-related. The user also authorized committing and pushing the completed unit after its required verification and documentation. This does not authorize runtime activation, credential changes, purchases, top-ups, reset redemption, destructive history edits, or publication of private evidence.
 

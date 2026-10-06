@@ -27,7 +27,7 @@ G1 is not required before constructing its own Phase B review subject, and G2 is
 - [x] Establish qualified Flash MAX writer and adoption lineage for the strict-parser checkpoint.
 - [x] Run qualified deterministic validation against the exact post-writer fifteen-file generation.
 - [x] Complete same-generation independent Sol review, repair, validation, exact recheck, complete final review, and controller dispositions.
-- [ ] Implement immutable canonical record storage and filesystem durability evidence.
+- [x] Implement immutable canonical record storage and filesystem durability evidence. Accepted checkpoint: [specification](../specs/002-record-store-checkpoint/spec.md) and [completion report](../specs/002-record-store-checkpoint/completion-report.md).
 - [ ] Implement closed nested record schemas, reference validation, and acyclic evidence relationships.
 - [ ] Implement complete verifier, executable/import/schema/configuration closure, and exact Git source binding.
 - [ ] Implement immutable prepare and verify outputs, including prepare before staging.
@@ -38,7 +38,7 @@ G1 is not required before constructing its own Phase B review subject, and G2 is
 - [ ] Complete U3 external-review acceptance formats and consumer rejection tests.
 - [ ] Obtain independent G1 of the actual finished Bootstrap subject.
 
-The first three items were completed through execution 074. Their exact result and limitations are in [Current implementation state](current-state.md) and the [parser completion report](../specs/001-bootstrap-parser-completion/completion-report.md).
+The first three items were completed through execution 074. The fourth item was completed through the independently accepted Execution 211 promotion and Execution 212 exact-source SOL PASS. Exact results and limits are in [Current implementation state](current-state.md), the [parser completion report](../specs/001-bootstrap-parser-completion/completion-report.md), the [record-store completion report](../specs/002-record-store-checkpoint/completion-report.md), and the [evidence register](observations.md#2026-10-06-record-store-checkpoint-completion).
 
 ## U1–U5 prerequisites
 
@@ -54,7 +54,7 @@ The first three items were completed through execution 074. Their exact result a
 
 After Bootstrap adoption, C30-01 consumes `BOOTSTRAP_CHECKPOINT_V2`; each later C30 sprint consumes its immediate predecessor through C30-14. Final G2 must cover the actual integrated and packaged source. The real Pi extension must then be installed and verified before an installable LCIM 3.0 MVP can be claimed. Runtime activation remains a separate authorized action.
 
-The parser checkpoint is one completed Phase B unit. It is not the full MVP.
+The parser and immutable record-store checkpoints are completed Phase B units. They are not the full MVP.
 
 ## Future product work
 

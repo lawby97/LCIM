@@ -1,6 +1,6 @@
 ---
 title: LCIM project overview
-description: What LCIM controls, the accepted parser milestone, and the path to the MVP.
+description: What LCIM controls, the accepted parser and record-store milestones, and the path to the MVP.
 tags:
   - lcim
   - project
@@ -11,9 +11,14 @@ LCIM is an executable software-delivery controller. Model routing is one part of
 
 ## Current milestone
 
-The Phase B Bootstrap parser checkpoint is complete. It provides strict JSON and Unicode processing, canonicalization, digest helpers, input limits, and tests across fifteen files. Qualified validation passed 190 tests, all six bounded Sol decisions passed, no findings survived, and the controller marked all four required dispositions PASS. See [Current implementation state](current-state.md).
+Two Phase B checkpoints are complete:
 
-This milestone does not make LCIM 3.0 an MVP. Immutable records, schemas and reference checks, the complete verifier, registry CAS and recovery, source admission, proof export, adversarial evidence, final Bootstrap G1, C30-01 through C30-14, final G2, real Pi installation, and separately authorized activation remain open. See the [delivery plan](delivery-plan.md).
+- the strict parser checkpoint provides strict JSON and Unicode processing, canonicalization, digest helpers, bounded inputs, and nine test modules;
+- the immutable record-store checkpoint adds confined content-addressed persistence, descriptor-anchored staging, verified hard-link publication, durability fsyncs, exact-existing verification, and no-follow verified reads.
+
+The record-store generation passed 190 tests in both isolated and target trees, all focused safety probes, a one-request exact-source OAuth SOL XHIGH decision, and separate independent result review. No finding survived. See [Current implementation state](current-state.md).
+
+These milestones do not make LCIM 3.0 an MVP. Closed schemas and reference checks, the complete verifier, registry CAS and recovery, source admission, proof export, adversarial evidence, final Bootstrap G1, C30-01 through C30-14, final G2, real Pi installation, and separately authorized activation remain open. See the [delivery plan](delivery-plan.md).
 
 ## Why the controller is larger than a router
 
@@ -39,3 +44,5 @@ These controls turn model output into an auditable, resumable software lifecycle
 - [Operations and resumption](operations.md)
 - [Parser completion specification](../specs/001-bootstrap-parser-completion/spec.md)
 - [Parser completion report](../specs/001-bootstrap-parser-completion/completion-report.md)
+- [Record-store checkpoint specification](../specs/002-record-store-checkpoint/spec.md)
+- [Record-store checkpoint completion report](../specs/002-record-store-checkpoint/completion-report.md)

@@ -1,25 +1,32 @@
 ---
 title: Operations and resumption
-description: How to resume after the accepted parser checkpoint and maintain the OpenKnowledge record.
+description: How to resume after the accepted record-store checkpoint and maintain the OpenKnowledge record.
 tags:
   - lcim
   - project
 ---
 # Operations and resumption
 
-Resume work from the accepted parser checkpoint on branch `codex/lcim-u2-bootstrap-candidate`. The source checkpoint contains six modules and nine tests. Its qualified validation, six Sol decisions, final assessment, and four controller dispositions are indexed in the [evidence register](observations.md#2026-10-04-qualified-parser-completion-and-controller-acceptance).
+Resume work from the accepted record-store checkpoint on branch `codex/lcim-u2-record-store-source-stage`. The checkpoint adds `src/source-checkpoint/record-store.mjs` to the accepted parser predecessor. Its isolated and target validation, exact-source SOL PASS, and independent result review are indexed in the [evidence register](observations.md#2026-10-06-record-store-checkpoint-completion).
 
 ## Resume sequence
 
-1. Confirm the branch and clean working state before starting a new implementation unit.
-2. Treat the fifteen parser checkpoint files as the accepted predecessor generation.
-3. Read the [delivery plan](delivery-plan.md) and start the next unchecked Phase B item: immutable canonical record storage with filesystem durability evidence.
-4. Define the new unit's owned files and any required interfaces before implementation.
-5. Use only current, qualified provider routes and a finite grant.
+1. Confirm the branch, expected base, and clean tracked state before starting a new implementation unit.
+2. Treat the accepted parser files, nine unchanged tests, and the record-store source as fixed predecessor bytes.
+3. Read the [delivery plan](delivery-plan.md) and start the next unchecked Phase B item: closed nested record schemas, reference validation, and acyclic evidence relationships.
+4. Define the unit's owned files and any required interfaces before implementation.
+5. Use only current qualified routes with finite grants: DeepSeek Flash MAX for implementation/repair and OAuth `gpt-5.6-sol` XHIGH for exact-source decisions.
 6. Retain deterministic validation, independent review, repair/recheck, and controller dispositions for the new exact generation.
-7. Update the [current state](current-state.md), [evidence register](observations.md), and a unit completion report before commit.
+7. Update the [current state](current-state.md), [evidence register](observations.md), and a unit completion report before operator integration.
+8. Run focused tests, applicable repository checks, public-safety scans, and a full OpenKnowledge audit before commit and push.
 
-Do not reopen the accepted parser generation merely to repeat review. If the next unit discovers a real cross-unit defect or requires a change under `src/shared/**` or `schemas/common/**`, record the need as an interface-change request before altering stable shared contracts.
+Do not reopen either accepted generation merely to repeat review. If the next unit discovers a real cross-unit defect or requires a change under `src/shared/**` or `schemas/common/**`, record the need as an interface-change request before altering stable shared contracts.
+
+## Blocked and surviving-finding flow
+
+A same-issue retry may occur only within current authority and the configured limit, which defaults to three and cannot exceed three. Every retry preserves terminal history and reapplies writer, validation, review, budget, and currentness gates.
+
+The future operator interface should display the surviving evidence and prompt the user to choose whether to correct the contract, change permitted scope, supply authoritative information, accept the limitation, abandon the candidate, or create a materially different work unit with fresh authority. It should also accept a user-selected retry count up to three.
 
 ## Cost and request handling
 
@@ -29,8 +36,8 @@ Codex source review remains OAuth-only with no API billing, paid credit purchase
 
 ## Public-repository boundary
 
-Keep the repository public-safe. Never add credentials, environment files, raw model transcripts, immutable review packets, local escalation records, provider responses, or target-repository runtime evidence. Record only safe summaries and content digests in repository documentation.
+Keep the repository public-safe. Never add credentials, environment files, raw model transcripts, immutable review packets, local escalation records, provider responses, account identifiers, or target-repository runtime evidence. Record only safe summaries and content digests in repository documentation.
 
 ## Documentation discipline
 
-All in-scope Markdown is managed through OpenKnowledge. Update evidence claims with source links, keep lifecycle statuses current, and run a full OpenKnowledge audit before committing documentation. The [parser completion report](../specs/001-bootstrap-parser-completion/completion-report.md) is the pattern for bounded implementation-unit reports.
+All in-scope Markdown is managed through OpenKnowledge. Update evidence claims with local source links, keep lifecycle statuses current, and run a full OpenKnowledge audit before committing documentation. The [record-store completion report](../specs/002-record-store-checkpoint/completion-report.md) is the current pattern for bounded implementation-unit reports.

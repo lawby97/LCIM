@@ -1,59 +1,39 @@
 ---
 title: Current implementation state
-description: Accepted Bootstrap parser checkpoint, exact evidence boundary, and next Phase B work.
+description: Accepted parser and immutable record-store checkpoints, exact evidence boundary, and next Phase B work.
 tags:
   - lcim
   - project
 ---
 # Current implementation state
 
-Snapshot: 2026-10-04 UTC. LCIM 3.0 remains in Phase B Bootstrap construction. The strict JSON and canonicalization parser checkpoint is complete and controller-accepted. The full Bootstrap verifier, C30 implementation, Pi extension, activation, and LCIM 3.0 MVP remain incomplete. The governing sequence is preserved in the [delivery plan](delivery-plan.md).
+Snapshot: 2026-10-06 UTC. LCIM 3.0 remains in Phase B Bootstrap construction. The strict parser checkpoint and immutable canonical record-store checkpoint are complete and independently accepted. The full Bootstrap verifier, C30 implementation, Pi extension, activation, and LCIM 3.0 MVP remain incomplete. The governing sequence is preserved in the [delivery plan](delivery-plan.md).
 
 ## Accepted parser checkpoint
 
-The candidate branch is `codex/lcim-u2-bootstrap-candidate`, constructed from planning commit `d0810f907f43e9ff706b63bb2116e93baeb31bca`. The accepted source checkpoint consists of six modules under `src/source-checkpoint/` and nine tests under `tests/source-checkpoint/`.
+The parser predecessor provides strict JSON and Unicode processing, canonicalization, digest helpers, bounded input handling, and nine unchanged test files. Its qualified 190-test validation, six ordered OAuth-only SOL decisions, complete review coverage, and controller dispositions are recorded in the [parser completion report](../specs/001-bootstrap-parser-completion/completion-report.md).
+
+## Accepted record-store checkpoint
+
+The accepted source is `src/source-checkpoint/record-store.mjs` on branch `codex/lcim-u2-record-store-source-stage`, head `cf5e0c689404aaaf781f980c514b597aae900b06`. It is 44,805 bytes, regular single-link mode 0644, SHA-256 `1ee6ee1c17a3eee305411a7368ba68684f7f6603c65552848d58280b3d9ed5fb`.
 
 | Evidence | Result |
 | --- | --- |
-| Qualified deterministic validation | 190 tests passed; zero failures, cancellations, skips, todos, or stderr |
-| Final source review | Six ordered OAuth-only `gpt-5.6-sol` XHIGH decisions passed |
-| Review coverage | All fifteen checkpoint files covered; zero surviving findings |
-| Controller dispositions | `PATCH_VALID`, `SEMANTICALLY_ACCEPTED`, `CANDIDATE_INTEGRATED`, and `REVIEW_APPROVED` all PASS |
-| Provider use | Six DeepSeek Flash repair requests and six Codex OAuth Sol requests |
-| DeepSeek conservative upper bound | USD 3.0277632, within the 50-request and USD 20 qualified grant ceilings |
+| Qualified writer lineage | DeepSeek Flash MAX candidate; one localized final repair hunk |
+| Atomic promotion | One source mutation; no rollback; zero provider requests; cleanup complete |
+| Deterministic validation | Isolated 190/190 and target 190/190 |
+| Focused safety probes | Confinement, descriptor anchor, cleanup aggregation, post-anchor dual failure, and finalization/replay all PASS |
+| Final source decision | One exact-source OAuth `gpt-5.6-sol` XHIGH request; PASS |
+| Independent review | Packet, promotion result, SOL packet, and SOL result all PASS |
+| Final findings | Zero surviving findings |
 | Codex spending | OAuth entitlement only; no API billing, purchase, top-up, paid credit, or reset redemption |
 
-Exact private evidence identities, including the execution 074 manifest, independent packet acceptance, validation result, six Sol results, final assessment, and controller disposition, are recorded in the [evidence register](observations.md#2026-10-04-qualified-parser-completion-and-controller-acceptance). Runtime evidence remains outside the public repository.
-
-## Accepted file inventory
-
-Source modules:
-
-- `canonical-string.mjs`
-- `canonical.mjs`
-- `digest.mjs`
-- `json-token.mjs`
-- `strict-json.mjs`
-- `unicode.mjs`
-
-Test modules:
-
-- `canonical-string.test.mjs`
-- `canonical.test.mjs`
-- `digest.test.mjs`
-- `json-token-grammar.test.mjs`
-- `json-token-limits.test.mjs`
-- `strict-json-limits.test.mjs`
-- `strict-json-views.test.mjs`
-- `strict-json.test.mjs`
-- `unicode.test.mjs`
-
-The only accepted repair changed `tests/source-checkpoint/strict-json-views.test.mjs`. Its accepted SHA-256 is `06c048abb61dcdd78d407d42a629d7b0e81a517792349edaa7d32ce33bc8bc96`.
+Exact public-safe evidence identities are in the [evidence register](observations.md#2026-10-06-record-store-checkpoint-completion). The source contract and completion details are in the [record-store specification](../specs/002-record-store-checkpoint/spec.md) and [completion report](../specs/002-record-store-checkpoint/completion-report.md).
 
 ## Scope boundary
 
-This checkpoint provides strict JSON parsing, token and Unicode handling, canonical string and value processing, digest helpers, input-limit checks, and independently reviewed tests. It does not provide the remaining Bootstrap record store, closed record schemas, reference graph checks, registry CAS, admission, proof export, final G1, C30 delivery, installation, or activation.
+The two accepted checkpoints now provide strict parsing/canonicalization/digests plus immutable content-addressed record persistence and verified reads. They do not provide closed nested record schemas, reference graph checks, the complete verifier, prepare/verify outputs, registry CAS and recovery, admission/currentness, proof export, final G1, C30 delivery, installation, or activation.
 
 ## Next original-plan action
 
-The next Phase B implementation unit is immutable canonical record storage with filesystem durability evidence. It must consume this accepted parser checkpoint without reopening its accepted generation unless a real interface defect requires a separately recorded change. The remaining ordered obligations are listed in the [delivery plan](delivery-plan.md).
+The next Phase B implementation unit is closed nested record schemas, reference validation, and acyclic evidence relationships. It must consume both accepted checkpoints without reopening their generations unless a real interface defect requires a separately recorded change. Remaining ordered obligations are listed in the [delivery plan](delivery-plan.md).
